@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+wyniki/
+data/cache_audytow.json
+data/cache_kontaktow.json
+
+data/maile_robocze.json
+data/wyslane.json
+data/wypisani.txt

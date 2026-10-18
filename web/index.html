@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SCOUT</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Układ: pasek kluczy, formularz wyszukiwania, postęp, potem leady (lewo) + log (prawo). Ciemny styl panelu agentów. */
+:root{
+  color-scheme:dark;
+  --bg:#070c0f; --panel:#0c1519; --panel-2:#101c21; --line:#1a2b31; --fg:#d6e4e8; --muted:#7b9299;
+  --accent:#5fe3b0; --accent-dim:#1f4d3e; --warn:#f0c060; --bad:#ff7a6b; --info:#6fc3ff;
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body);margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:18px 40px;display:grid;gap:14px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:4px;min-width:0}
+.box-h{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#0f2a24,transparent 70%)}
+.h{font:600 14px/1.2 var(--f-display);letter-spacing:.3em;text-transform:uppercase;margin:0}
+.sub{font:500 10.5px/1.3 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.tag{font:500 10.5px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--accent-dim);color:var(--accent);padding:3px 8px;border-radius:2px;white-space:nowrap}
+.tag.off{border-color:#4d2a26;color:var(--bad)}
+.tag.warn{border-color:#4d3f1a;color:var(--warn)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px}
+.av{width:38px;height:38px;border:1px solid var(--accent-dim);display:grid;place-items:center;font:600 12px var(--f-mono);color:var(--accent);background:var(--panel-2)}
+.an{font:700 18px var(--f-display);letter-spacing:.25em}
+.ar{color:var(--muted);font:12px var(--f-mono);flex:1;min-width:160px}
+.status{font:600 11px var(--f-mono);letter-spacing:.15em;background:var(--accent-dim);color:var(--accent);padding:4px 10px}
+.status.busy{background:#4d3f1a;color:var(--warn)}.status.err{background:#4d2a26;color:var(--bad)}
+.keys{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+form{display:grid;gap:14px;padding:16px}
+label{font:500 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:grid;gap:6px}
+input[type=text],input[type=password],input[type=number],select{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);font:14px var(--f-body);padding:9px 10px;border-radius:2px;width:100%;min-width:0;text-transform:none;letter-spacing:0}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 12px var(--f-mono);border:1px solid var(--line);background:var(--panel-2);padding:6px 10px;color:var(--fg);cursor:pointer;border-radius:2px}
+.chip b{color:var(--accent);margin-left:6px;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-dim)}
+.checks{display:flex;flex-wrap:wrap;gap:16px}
+.checks label{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font:13px var(--f-body);color:var(--fg)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:600 12px var(--f-mono);letter-spacing:.18em;text-transform:uppercase;border:1px solid var(--accent);background:var(--accent-dim);color:var(--accent);padding:10px 18px;cursor:pointer;border-radius:2px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--fg)}
+.hint{color:var(--muted);font-size:12.5px}
+.prog{padding:12px 16px;display:grid;gap:8px}
+.bar{height:6px;background:var(--panel-2);border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.filters{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.lead{border-bottom:1px solid var(--line)}
+.lead summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px}
+.lead summary::-webkit-details-marker{display:none}
+.lead[open] summary{background:var(--panel-2)}
+.sc{font:700 22px/1 var(--f-display);text-align:center;font-variant-numeric:tabular-nums}
+.sc small{display:block;font:500 10px var(--f-mono);letter-spacing:.15em;color:var(--muted);margin-top:4px}
+.tA{color:var(--accent)}.tB{color:var(--warn)}.tC{color:var(--muted)}
+.nm{font-weight:600;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.type{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border:1px solid currentColor;white-space:nowrap}
+.ty-BRAK_STRONY,.ty-STRONA_NIE_DZIALA{color:var(--bad)}.ty-TYLKO_SOCIAL{color:var(--info)}.ty-SLABA_STRONA{color:var(--warn)}.ty-OK{color:var(--muted)}
+.det{padding:6px 16px 16px 86px;display:grid;gap:12px}
+@media (max-width:600px){.det{padding-left:16px}.lead summary{grid-template-columns:48px minmax(0,1fr)}.lead summary .type{grid-column:2;justify-self:start}}
+.det h4{margin:0;font:600 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.det ul{margin:0;padding-left:18px;display:grid;gap:3px}
+.pitch{border-left:2px solid var(--accent-dim);padding:8px 10px;color:#bfd8c4;font-style:italic;background:var(--panel-2);display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.copy{font:500 11px var(--f-mono);background:none;border:1px solid var(--line);color:var(--fg);padding:3px 8px;cursor:pointer;font-style:normal;white-space:nowrap}
+.kv{display:flex;flex-wrap:wrap;gap:6px 18px;font:12.5px var(--f-mono);color:var(--muted)}
+.kv b{color:var(--fg);font-weight:500;user-select:all}
+a{color:var(--info)}
+.shots{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.shots img{border:1px solid var(--line);max-width:100%;height:auto}
+.shots .m{width:120px}.shots .d{width:min(380px,100%)}
+.log{max-height:640px;overflow:auto}
+.ln{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;padding:7px 14px;font:12px/1.45 var(--f-mono);border-bottom:1px solid #111d22}
+.ln .t{color:var(--muted)}.ln .x{overflow-wrap:anywhere}
+.empty{padding:22px 16px;color:var(--muted)}
+.keyform{display:grid;gap:12px;padding:0 16px 16px}
+.free{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font:600 13px var(--f-body);color:var(--accent)}
+.dl{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="box">
+    <div class="top">
+      <div class="av">SC</div>
+      <div class="an">SCOUT</div>
+      <div class="ar">Łowca klientów / audyt stron · Research / Analiza</div>
+      <span class="status" id="status">GOTOWY</span>
+    </div>
+    <div class="box-h" style="border-top:1px solid var(--line)">
+      <div class="keys" id="keys"></div>
+      <div class="actions">
+        <label class="free" for="freeOnly"><input id="freeOnly" type="checkbox" checked> Tylko darmowe limity</label>
+        <button class="btn ghost" type="button" id="keysToggle" aria-expanded="false">Klucze API</button>
+      </div>
+    </div>
+    <form class="keyform" id="keyform" hidden>
+      <p class="hint">Klucze zapisują się tylko na tym komputerze, w pliku <code>.env</code> w folderze agenta. Wpisz tylko te, które chcesz zmienić.</p>
+      <div class="row">
+        <label for="kGoogle">Google Places API (płatne, na później)<input id="kGoogle" type="password" autocomplete="off" placeholder="AIza…"></label>
+        <label for="kPsi">PageSpeed API (darmowy)<input id="kPsi" type="password" autocomplete="off"></label>
+        <label for="kAnth">Anthropic API (płatne, na później)<input id="kAnth" type="password" autocomplete="off" placeholder="sk-ant-…"></label>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Zapisz klucze</button><span class="hint" id="keyMsg"></span></div>
+    </form>
+  </section>
+
+  <section class="box">
+    <div class="box-h"><div><h1 class="h">Nowe wyszukiwanie</h1><div class="sub">Miasto + branże → firmy bez strony lub ze słabą stroną</div></div></div>
+    <form id="search">
+      <div class="row">
+        <label for="cities">Miasta (po przecinku)<input id="cities" type="text" value="Poznań"></label>
+        <label for="custom">Inne branże (po przecinku)<input id="custom" type="text" placeholder="np. tapicer, studio tatuażu"></label>
+        <label for="limit">Firm na zapytanie<select id="limit"><option>20</option><option selected>40</option><option>60</option></select></label>
+        <label for="minScore">Pokaż od wyniku<select id="minScore"><option value="0">0 (wszystkie)</option><option value="35" selected>35</option><option value="55">55 (B i A)</option><option value="75">75 (tylko A)</option></select></label>
+      </div>
+      <div style="display:grid;gap:6px">
+        <span class="sub" style="margin:0">Branże</span>
+        <div class="cats" id="cats"></div>
+      </div>
+      <div class="checks">
+        <label for="optPsi"><input id="optPsi" type="checkbox" checked> Google PageSpeed (szybkość i SEO)</label>
+        <label for="optAi"><input id="optAi" type="checkbox" checked> Ocena wyglądu przez AI (zrzuty ekranu)</label>
+        <label for="aiTop">ile stron: <input id="aiTop" type="number" min="1" max="200" value="25" style="width:80px"></label>
+        <label for="optKontakty"><input id="optKontakty" type="checkbox" checked> Szukaj e-maila i Facebooka firm bez strony</label>
+        <label for="optMock"><input id="optMock" type="checkbox"> Tryb testowy (fikcyjne firmy)</label>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit" id="go">Szukaj</button>
+        <span class="hint" id="formMsg"></span>
+      </div>
+    </form>
+    <div class="prog" id="prog" hidden>
+      <div class="hint" id="progText"></div>
+      <div class="bar"><i id="progBar"></i></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="box">
+      <div class="box-h">
+        <div><h2 class="h">Leady</h2><div class="sub" id="leadSub">Brak wyników – uruchom wyszukiwanie</div></div>
+        <div class="dl" id="dl" hidden>
+          <a class="btn ghost" href="/api/scout/download/csv">CSV / Excel</a>
+          <a class="btn ghost" href="/api/scout/download/html" target="_blank" rel="noopener">Raport</a>
+        </div>
+      </div>
+      <div class="filters" id="filters" hidden></div>
+      <div id="leads"><div class="empty">Wpisz miasto, zaznacz branże i kliknij „Szukaj”. Każda firma pokaże tu wynik 0–100, listę rzeczy do zmiany na stronie, kontakt i gotowe zdanie na pierwszy kontakt.</div></div>
+    </section>
+    <section class="box" id="mailBox" style="grid-column:1/-1">
+      <div class="box-h">
+        <div><h2 class="h">Maile do firm</h2><div class="sub" id="mailSub">Szkice pojawią się po wyszukiwaniu</div></div>
+        <div class="actions">
+          <label class="free" for="mailAuto"><input id="mailAuto" type="checkbox"> Wysyłaj automatycznie</label>
+          <button class="btn ghost" type="button" id="mailSend">Wyślij zaznaczone</button>
+        </div>
+      </div>
+      <div class="hint" id="mailHint" style="padding:10px 16px"></div>
+      <div id="mails"></div>
+      <form id="stopForm" class="actions" style="padding:10px 16px">
+        <input id="stopMail" type="text" placeholder="adres lub @domena, której nie pisać" style="flex:1;min-width:200px">
+        <button class="btn ghost" type="submit">Nie pisz do tego adresu</button>
+      </form>
+    </section>
+    <section class="box">
+      <div class="box-h"><h2 class="h">Log</h2><span class="tag" id="spent">AI: $0.00</span></div>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const LABEL = {BRAK_STRONY:'Brak strony',TYLKO_SOCIAL:'Tylko social',STRONA_NIE_DZIALA:'Strona nie działa',SLABA_STRONA:'Słaba strona',OK:'Strona OK'};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+let LEADS = [], filter = 'ALL', selected = new Set(['dentysta']), lastRun = null, polling = null;
+
+const OFFLINE = 'Brak połączenia z SCOUT-em. Czarne okno SCOUT musi być cały czas otwarte. Jeśli je zamknąłeś albo pokazuje błąd, uruchom start.bat jeszcze raz i odśwież tę stronę (F5).';
+async function api(path, opts) {
+  let r;
+  try { r = await fetch(path, opts); }
+  catch (e) { setOnline(false); throw new Error(OFFLINE); }
+  setOnline(true);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+function setOnline(ok) {
+  const st = $('status');
+  if (!ok) { st.textContent = 'ROZŁĄCZONY'; st.className = 'status err'; $('formMsg').textContent = OFFLINE; }
+  else if (st.textContent === 'ROZŁĄCZONY') { $('formMsg').textContent = ''; }
+}
+
+function renderKeys(cfg) {
+  const k = cfg.keys, free = cfg.free_only;
+  const pill = (ok, name) => `<span class="tag ${ok ? '' : 'warn'}">${name}: ${ok ? 'OK' : 'brak'}</span>`;
+  const paid = name => `<span class="tag off">${name}: wyłączone</span>`;
+  $('freeOnly').checked = free;
+  $('keys').innerHTML = (free ? paid('Google Places') : pill(k.google, 'Google Places')) + pill(k.pagespeed, 'PageSpeed')
+    + (free ? paid('Claude') : pill(k.anthropic, 'Claude'))
+    + (free ? '<span class="hint">Tryb darmowy: firmy z OpenStreetMap, audyt stron i PageSpeed. Nic nie kosztuje.</span>'
+            : !k.google ? '<span class="hint">Bez klucza Google Places szukam w OpenStreetMap.</span>' : '');
+  const aiOk = k.anthropic && !free;
+  $('optAi').disabled = !aiOk; if (!aiOk) $('optAi').checked = false;
+}
+
+function renderCats(cats) {
+  $('cats').innerHTML = cats.map(c => `<button type="button" class="chip" data-c="${esc(c)}" aria-pressed="${selected.has(c)}">${esc(c)}</button>`).join('');
+}
+
+function renderFilters() {
+  const counts = {}; LEADS.forEach(l => counts[l.lead_type] = (counts[l.lead_type] || 0) + 1);
+  const items = [['ALL', 'Wszystkie', LEADS.length], ...Object.keys(LABEL).filter(k => counts[k]).map(k => [k, LABEL[k], counts[k]])];
+  if (!items.some(i => i[0] === filter)) filter = 'ALL';
+  $('filters').hidden = !LEADS.length;
+  $('filters').innerHTML = items.map(([k, n, c]) => `<button class="chip" data-k="${k}" aria-pressed="${k === filter}">${esc(n)}<b>${c}</b></button>`).join('');
+}
+
+function renderLeads() {
+  renderFilters();
+  const list = LEADS.filter(l => filter === 'ALL' || l.lead_type === filter);
+  $('dl').hidden = !LEADS.length;
+  if (!LEADS.length) return;
+  $('leadSub').textContent = `${list.length} z ${LEADS.length} firm · od najlepszej szansy`;
+  $('leads').innerHTML = list.length ? list.map((l, i) => {
+    const b = l.business, a = l.audit || {};
+    const phone = b.phone || (a.phones || [])[0] || '';
+    const kv = [
+      ['Telefon', phone], ['Właściciel', b.owner_name ? b.owner_name + (b.owner_info ? ' (' + b.owner_info + ')' : '') : ''], ['E-mail', [...new Set([...(b.emails || []), ...(a.emails || [])])].slice(0, 3).join(', ')],
+      ['Google', b.rating != null ? `${b.rating} ★ (${b.reviews} opinii)` : ''],
+      ['PageSpeed', a.pagespeed_mobile != null ? `${a.pagespeed_mobile}/100` : ''],
+      ['Wygląd', a.visual_score != null ? `${a.visual_score}/10` : ''],
+    ].filter(x => x[1]).map(([k, v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('');
+    const links = [b.website && `<a href="${esc(b.website)}" target="_blank" rel="noopener">otwórz stronę</a>`,
+                   b.maps_url && `<a href="${esc(b.maps_url)}" target="_blank" rel="noopener">Google Maps</a>`,
+                   ...[...new Set([...(b.socials || []), ...(a.socials || [])])].slice(0, 3).map(s => `<a href="${esc(s)}" target="_blank" rel="noopener">${esc(s.split('/')[2] || 'social')}</a>`),
+                   ...(b.other_contacts || []).map(c => { const [n, ...u] = c.split(': '); return `<a href="${esc(u.join(': '))}" target="_blank" rel="noopener">${esc(n)}</a>`; })]
+                  .filter(Boolean).join(' · ');
+    const shots = l.screenshot_desktop ? `<div class="shots"><img class="m" loading="lazy" src="${l.screenshot_mobile}" alt="Zrzut strony na telefonie"><img class="d" loading="lazy" src="${l.screenshot_desktop}" alt="Zrzut strony na komputerze"></div>` : '';
+    return `<details class="lead" ${i === 0 ? 'open' : ''}>
+      <summary><div class="sc t${l.tier}">${l.score}<small>${l.tier}</small></div>
+        <div style="min-width:0"><div class="nm">${esc(b.name)}</div><div class="meta">${esc(b.category)} · ${esc(b.address)}</div></div>
+        <span class="type ty-${l.lead_type}">${esc(LABEL[l.lead_type] || l.lead_type)}</span></summary>
+      <div class="det">
+        <div class="kv">${kv}</div>
+        ${links ? `<div class="kv">${links}</div>` : ''}
+        ${b.contacts_note ? `<div class="kv"><span>Kontakty: <b>${esc(b.contacts_note)}</b></span></div>` : ''}
+        <div><h4>Co do zmiany</h4><ul>${l.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+        ${shots}
+        ${l.pitch ? `<div class="pitch"><span>${esc(l.pitch)}</span><button class="copy" data-t="${esc(l.pitch)}">Kopiuj</button></div>` : ''}
+      </div></details>`;
+  }).join('') : '<div class="empty">Brak leadów tego typu.</div>';
+}
+
+function renderState(s) {
+  const st = $('status'); st.textContent = s.status;
+  st.className = 'status' + (s.status === 'PRACUJE' ? ' busy' : s.status === 'BŁĄD' ? ' err' : '');
+  $('go').disabled = s.status === 'PRACUJE';
+  $('spent').textContent = `AI: $${(s.spent_usd || 0).toFixed(2)} / $${(s.budget_usd || 0).toFixed(2)}`;
+  const p = s.progress || {};
+  $('prog').hidden = s.status !== 'PRACUJE';
+  $('progText').textContent = p.etap ? `${p.etap}: ${p.zrobione}/${p.wszystkie}` : 'start…';
+  $('progBar').style.width = p.wszystkie ? `${Math.round(100 * p.zrobione / p.wszystkie)}%` : '5%';
+  $('log').innerHTML = (s.log || []).slice().reverse().map(x =>
+    `<div class="ln"><span class="t">${esc(x.czas)}</span><span class="x">${esc(x.tekst)}</span></div>`).join('') || '<div class="empty">Pusto.</div>';
+}
+
+async function tick() {
+  try {
+    const s = await api('/api/scout/state');
+    renderState(s);
+    if (s.last_run && s.last_run !== lastRun) { lastRun = s.last_run; LEADS = await api('/api/scout/leads'); renderLeads(); loadMail(); }
+    if (s.status !== 'PRACUJE' && polling) { clearInterval(polling); polling = null; }
+  } catch (e) { $('formMsg').textContent = e.message; }
+}
+
+let MAIL = {drafts: []};
+function renderMail() {
+  const m = MAIL, ds = m.drafts || [];
+  const open = ds.filter(d => d.status === 'szkic').length;
+  $('mailSub').textContent = ds.length ? `${open} szkiców do wysłania · wysłano dziś ${m.sent_today}/${m.limit}` : 'Szkice pojawią się po wyszukiwaniu (tylko firmy z adresem e-mail)';
+  $('mailAuto').checked = !!m.auto; $('mailAuto').disabled = !m.smtp;
+  $('mailSend').disabled = !m.smtp;
+  $('mailHint').textContent = !m.smtp
+    ? 'Poczta nie jest ustawiona: wpisz SMTP_HOST, SMTP_USER, SMTP_PASSWORD i MAIL_FROM w pliku .env (wzór w .env.example), zrestartuj SCOUT-a. Do tego czasu nic nie jest wysyłane.'
+    : `Nadawca: ${m.from}. Automat wysyła w dni robocze ${m.hours}, max ${m.limit} dziennie, jeden mail na adres. Odbiorcy, którzy odpiszą „STOP”, trafiają na listę „nie pisz”.`;
+  $('mails').innerHTML = ds.length ? ds.slice().sort((a, b) => (a.status === 'szkic' ? 0 : 1) - (b.status === 'szkic' ? 0 : 1) || b.wynik - a.wynik).map(d => `
+    <details class="lead"><summary style="grid-template-columns:28px minmax(0,1fr) auto">
+      <input type="checkbox" class="mk" data-id="${esc(d.id)}" ${d.status === 'szkic' ? '' : 'disabled'} aria-label="Zaznacz">
+      <div style="min-width:0"><div class="nm">${esc(d.firma)} <span class="meta">· ${esc(d.to)}</span></div><div class="meta">${esc(d.subject)}</div></div>
+      <span class="type">${esc({szkic:'szkic', wyslano:'wysłano', pominieto:'pominięto', blad:'błąd', wypisany:'nie pisać'}[d.status] || d.status)}</span></summary>
+      <div class="det" style="padding-left:16px"><div class="pitch" style="white-space:pre-wrap;font-style:normal">${esc(d.body)}</div>${d.blad ? `<div class="hint">${esc(d.blad)}</div>` : ''}</div></details>`).join('')
+    : '<div class="empty">Brak szkiców.</div>';
+}
+async function loadMail() { try { MAIL = await api('/api/scout/outreach'); renderMail(); } catch (_) {} }
+$('mailAuto').addEventListener('change', async e => {
+  try { MAIL = await api('/api/scout/outreach/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({auto: e.target.checked})}); renderMail(); }
+  catch (err) { e.target.checked = !e.target.checked; $('mailHint').textContent = err.message; }
+});
+$('mailSend').addEventListener('click', async () => {
+  const ids = [...document.querySelectorAll('.mk:checked')].map(x => x.dataset.id);
+  if (!ids.length) { $('mailHint').textContent = 'Zaznacz maile do wysłania (kółko po lewej).'; return; }
+  if (!confirm(`Wysłać ${ids.length} maili?`)) return;
+  try { const r = await api('/api/scout/outreach/send', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids})}); MAIL = r; renderMail();
+    $('mailHint').textContent = `Wysłano: ${r.wyslano}, pominięto: ${r.pominieto}.` + (r.powod ? ' ' + r.powod : ''); }
+  catch (err) { $('mailHint').textContent = err.message; }
+});
+$('stopForm').addEventListener('submit', async e => {
+  e.preventDefault(); const v = $('stopMail').value.trim(); if (!v) return;
+  try { MAIL = await api('/api/scout/outreach/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email: v})}); $('stopMail').value = ''; renderMail(); }
+  catch (err) { $('mailHint').textContent = err.message; }
+});
+loadMail(); setInterval(loadMail, 30000);
+
+$('cats').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const c = b.dataset.c; selected.has(c) ? selected.delete(c) : selected.add(c);
+  b.setAttribute('aria-pressed', selected.has(c));
+});
+$('filters').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; filter = b.dataset.k; renderLeads(); });
+$('leads').addEventListener('click', async e => {
+  const b = e.target.closest('.copy'); if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.t); b.textContent = 'Skopiowano'; } catch (_) { b.textContent = 'Zaznacz tekst'; }
+});
+$('freeOnly').addEventListener('change', async e => {
+  try {
+    const cfg = await api('/api/scout/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({free_only: e.target.checked})});
+    renderKeys(cfg); if (!cfg.free_only && cfg.keys.anthropic) $('optAi').checked = true;
+  } catch (err) { e.target.checked = !e.target.checked; $('formMsg').textContent = 'Nie udało się zmienić trybu: ' + err.message; }
+});
+$('keysToggle').addEventListener('click', () => { const f = $('keyform'); f.hidden = !f.hidden; $('keysToggle').setAttribute('aria-expanded', !f.hidden); });
+$('keyform').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    const cfg = await api('/api/scout/keys', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({google: $('kGoogle').value, pagespeed: $('kPsi').value, anthropic: $('kAnth').value})});
+    ['kGoogle', 'kPsi', 'kAnth'].forEach(id => $(id).value = '');
+    renderKeys(cfg); $('optAi').checked = cfg.keys.anthropic && !cfg.free_only; $('keyMsg').textContent = 'Zapisano.';
+  } catch (err) { $('keyMsg').textContent = 'Nie udało się zapisać: ' + err.message; }
+});
+$('search').addEventListener('submit', async e => {
+  e.preventDefault();
+  const cats = [...selected, ...$('custom').value.split(',').map(s => s.trim()).filter(Boolean)];
+  const cities = $('cities').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!cities.length || !cats.length) { $('formMsg').textContent = 'Podaj miasto i wybierz co najmniej jedną branżę.'; return; }
+  $('formMsg').textContent = '';
+  try {
+    await api('/api/scout/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
+      miasta: cities, branze: cats, limit: +$('limit').value, min_wynik: +$('minScore').value,
+      ocena_ai: $('optAi').checked, pagespeed: $('optPsi').checked, ai_top: +$('aiTop').value || 25, mock: $('optMock').checked,
+      kontakty: $('optKontakty').checked})});
+    if (!polling) polling = setInterval(tick, 1500);
+    tick();
+  } catch (err) { $('formMsg').textContent = err.message; }
+});
+
+(async () => {
+  try {
+    const cfg = await api('/api/scout/config');
+    renderKeys(cfg); renderCats(cfg.categories);
+    if (!cfg.keys.google) $('optPsi').checked = !!cfg.keys.pagespeed;
+  } catch (e) { renderCats(['dentysta']); }
+  await tick();
+  if ($('status').textContent === 'PRACUJE' && !polling) polling = setInterval(tick, 1500);
+  setInterval(() => { if (!polling) tick(); }, 5000);  // co 5 s sprawdza, czy SCOUT nadal działa
+})();
+</script>
+</body>
+</html>
