@@ -17,6 +17,8 @@ import scout_config as config
 from .models import Lead
 
 PATH = config.DATA_DIR / "baza_leadow.json"
+LOG_PATH = config.DATA_DIR / "aktywnosc.jsonl"   # dziennik: kto, kiedy, co zmienił (tylko dopisywanie)
+SEEN_PATH = config.DATA_DIR / "obecnosc.json"    # kiedy ostatnio kto otworzył panel
 _lock = threading.Lock()
 
 STATUSY = {
@@ -99,7 +101,70 @@ def update(key: str, who: str, status: str | None = None, notatka: str | None = 
         c["kto"], c["czas"] = who, _now()
         c["historia"] = c["historia"][-50:]
         _save(db)
+        b = rec["lead"]["business"]
+        for akcja, wartosc in (("status", STATUSY.get(status, status) if status is not None else None),
+                               ("notatka", notatka), ("oddzwonic", oddzwonic)):
+            if wartosc is not None and not (akcja == "oddzwonic" and wartosc == ""):
+                _log(who, key, b.get("name", ""), akcja, str(wartosc)[:300])
         return {"key": key, **rec}
+
+
+def _log(who: str, key: str, firma: str, akcja: str, wartosc: str) -> None:
+    try:
+        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"czas": _now(), "kto": who, "key": key, "firma": firma, "akcja": akcja, "wartosc": wartosc},
+                               ensure_ascii=False) + chr(10))
+    except OSError:
+        pass
+
+
+def touch(who: str) -> None:
+    """Zapamiętuje, że użytkownik właśnie ma otwarty panel (wywoływane przy odświeżaniu listy)."""
+    with _lock:
+        try:
+            seen = json.loads(SEEN_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            seen = {}
+        seen[who] = _now()
+        try:
+            SEEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+            SEEN_PATH.write_text(json.dumps(seen, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+
+
+def activity(days: int = 14, limit: int = 300) -> dict:
+    """Podsumowanie pracy zespołu: per osoba i dzień (zmiany statusów, notatki, spotkania…) + ostatnie zdarzenia."""
+    rows = []
+    try:
+        with LOG_PATH.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    try:
+        seen = json.loads(SEEN_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        seen = {}
+    since = (dt.datetime.now() - dt.timedelta(days=days)).isoformat()
+    rows = [r for r in rows if r["czas"] >= since]
+    users: dict[str, dict] = {}
+    for r in rows:
+        u = users.setdefault(r["kto"], {"kto": r["kto"], "dni": {}, "razem": {}})
+        d = u["dni"].setdefault(r["czas"][:10], {})
+        key = r["wartosc"] if r["akcja"] == "status" else r["akcja"]
+        for bucket in (d, u["razem"]):
+            bucket[key] = bucket.get(key, 0) + 1
+    for k in seen:
+        users.setdefault(k, {"kto": k, "dni": {}, "razem": {}})
+    for u in users.values():
+        u["ostatnio_w_panelu"] = seen.get(u["kto"], "")
+    return {"uzytkownicy": sorted(users.values(), key=lambda u: u["ostatnio_w_panelu"], reverse=True),
+            "zdarzenia": rows[-limit:][::-1], "dni": days}
 
 
 def csv_export() -> str:

@@ -127,17 +127,33 @@ def _who(request: Request) -> str:
     return (request.headers.get("x-hq-user") or "lokalnie")[:40]
 
 
+def _is_boss(request: Request) -> bool:
+    """Widok aktywności zespołu: tylko Prezes (Caddy przekazuje X-HQ-Rola); lokalnie bez nagłówka – tak."""
+    rola = request.headers.get("x-hq-rola")
+    return rola is None or rola.lower() == "prezes"
+
+
+@app.get("/api/scout/aktywnosc")
+def aktywnosc(request: Request, dni: int = 14):
+    from scout import baza
+
+    if not _is_boss(request):
+        raise HTTPException(403, "Ten widok jest tylko dla Prezesa")
+    return baza.activity(max(1, min(dni, 90)))
+
+
 @app.get("/api/scout/baza")
 def baza_list(request: Request):
     from scout import baza
 
+    baza.touch(_who(request))
     recs = baza.all_records()
     for r in recs:
         shot = ((r["lead"].get("audit") or {}).get("screenshot_path")) or ""
         if shot:
             r["lead"]["screenshot_desktop"] = "/zrzuty/" + Path(shot).name
             r["lead"]["screenshot_mobile"] = "/zrzuty/" + Path(shot).name.replace("_desktop", "_mobile")
-    return {"ja": _who(request), "statusy": baza.STATUSY, "rekordy": recs}
+    return {"ja": _who(request), "boss": _is_boss(request), "statusy": baza.STATUSY, "rekordy": recs}
 
 
 @app.post("/api/scout/crm")

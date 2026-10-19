@@ -135,6 +135,18 @@ input[type=datetime-local],input[type=search]{background:var(--panel-2);border:1
     </form>
   </section>
 
+  <section class="box" id="actBox" hidden>
+    <div class="box-h">
+      <div><h2 class="h">Aktywność zespołu</h2><div class="sub" id="actSub">Co robią handlowcy w narzędziu</div></div>
+      <div class="actions"><button class="btn ghost" type="button" id="actToggle" aria-expanded="false">Pokaż</button></div>
+    </div>
+    <div id="actBody" hidden>
+      <div id="actUsers" style="padding:12px 16px;display:grid;gap:10px"></div>
+      <div class="filters"><span class="sub" style="margin:0">Ostatnie zdarzenia</span></div>
+      <div id="actFeed"></div>
+    </div>
+  </section>
+
   <section class="box">
     <div class="box-h"><div><h1 class="h">Nowe wyszukiwanie</h1><div class="sub">Miasto + branże → firmy ze słabą stroną, dane z KRS, skrypt rozmowy</div></div></div>
     <form id="search">
@@ -214,7 +226,7 @@ input[type=datetime-local],input[type=search]{background:var(--panel-2);border:1
 const LABEL = {BRAK_STRONY:'Brak strony',TYLKO_SOCIAL:'Tylko social',STRONA_NIE_DZIALA:'Strona nie działa',SLABA_STRONA:'Słaba strona',OK:'Strona OK'};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = id => document.getElementById(id);
-let LEADS = [], filter = 'DO', selected = new Set(), lastRun = null, polling = null, STATUSY = {}, JA = '', CFG = null, segment = 'duze', openKey = null;
+let BOSS = false, LEADS = [], filter = 'DO', selected = new Set(), lastRun = null, polling = null, STATUSY = {}, JA = '', CFG = null, segment = 'duze', openKey = null;
 
 const OFFLINE = 'Brak połączenia z SCOUT-em. Czarne okno SCOUT musi być cały czas otwarte. Jeśli je zamknąłeś albo pokazuje błąd, uruchom start.bat jeszcze raz i odśwież tę stronę (F5).';
 async function api(path, opts) {
@@ -296,6 +308,31 @@ function scriptHtml(sc) {
     <details><summary>Obiekcje i odpowiedzi</summary>${sc.obiekcje.map(([o, a]) => `<div style="margin-top:6px"><b>„${esc(o)}”</b>${esc(a)}</div>`).join('')}</details></div>`;
 }
 
+const ago = t => { if (!t) return 'jeszcze nie był'; const m = Math.round((Date.now() - new Date(t)) / 60000);
+  return m < 1 ? 'teraz' : m < 60 ? m + ' min temu' : m < 1440 ? Math.round(m / 60) + ' h temu' : Math.round(m / 1440) + ' dn. temu'; };
+const online = t => t && (Date.now() - new Date(t)) < 3 * 60000;
+
+async function loadAct() {
+  if (!BOSS) return;
+  try {
+    const r = await api('/api/scout/aktywnosc?dni=14');
+    const today = new Date().toISOString().slice(0, 10);
+    const pretty = {oddzwonic: 'terminy', notatka: 'notatki'};
+    $('actUsers').innerHTML = r.uzytkownicy.length ? r.uzytkownicy.map(u => {
+      const d = u.dni[today] || {};
+      const sum = o => Object.entries(o).map(([k, v]) => `${esc(pretty[k] || k)}: <b>${v}</b>`).join(' · ') || '—';
+      return `<div class="call"><div class="nm">${online(u.ostatnio_w_panelu) ? '🟢' : '⚪'} ${esc(u.kto)}
+        <span class="meta"> · w panelu: ${esc(ago(u.ostatnio_w_panelu))}</span></div>
+        <div class="kv"><span>Dziś: ${sum(d)}</span></div>
+        <div class="kv"><span>14 dni: ${sum(u.razem)}</span></div></div>`;
+    }).join('') : '<div class="empty">Nikt jeszcze nic nie zrobił.</div>';
+    $('actFeed').innerHTML = r.zdarzenia.length ? r.zdarzenia.slice(0, 100).map(z => `<div class="ln" style="grid-template-columns:96px minmax(0,1fr)">
+      <span class="t">${esc(fmtT(z.czas))}</span><span class="x"><b>${esc(z.kto)}</b> · ${esc(z.firma)} · ${z.akcja === 'status' ? 'status: ' + esc(z.wartosc)
+        : z.akcja === 'oddzwonic' ? 'oddzwonić ' + esc(fmtT(z.wartosc)) : 'notatka: ' + esc(z.wartosc)}</span></div>`).join('') : '<div class="empty">Brak zdarzeń.</div>';
+    const on = r.uzytkownicy.filter(u => online(u.ostatnio_w_panelu)).map(u => u.kto);
+    $('actSub').textContent = on.length ? 'Teraz w narzędziu: ' + on.join(', ') : 'Nikt teraz nie jest w narzędziu';
+  } catch (_) {}
+}
 const fmtT = t => (t || '').replace('T', ' ').slice(5, 16);
 
 function leadHtml(l) {
@@ -361,7 +398,7 @@ function renderLeads() {
 async function loadBaza() {
   try {
     const r = await api('/api/scout/baza');
-    STATUSY = r.statusy; JA = r.ja;
+    STATUSY = r.statusy; JA = r.ja; BOSS = !!r.boss; $('actBox').hidden = !BOSS; if ($('actBody') && !$('actBody').hidden) loadAct();
     LEADS = r.rekordy.map(x => ({...x.lead, key: x.key, crm: x.crm}));
     renderLeads();
   } catch (_) {}
@@ -441,6 +478,7 @@ $('cats').addEventListener('click', e => {
   const c = b.dataset.c; selected.has(c) ? selected.delete(c) : selected.add(c);
   b.setAttribute('aria-pressed', selected.has(c));
 });
+$('actToggle').addEventListener('click', () => { const h = $('actBody').hidden = !$('actBody').hidden; $('actToggle').textContent = h ? 'Pokaż' : 'Ukryj'; $('actToggle').setAttribute('aria-expanded', !h); if (!h) loadAct(); });
 $('filters').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; filter = b.dataset.k; renderLeads(); });
 ['q', 'fSize', 'fSeg', 'fTel'].forEach(id => $(id).addEventListener('input', renderLeads));
 document.querySelector('.seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSegment(b.dataset.seg); });
@@ -511,7 +549,7 @@ $('search').addEventListener('submit', async e => {
     renderKeys(cfg); setSegment(cfg.segment || 'duze');
     if (!cfg.keys.google) $('optPsi').checked = !!cfg.keys.pagespeed;
   } catch (e) { renderCats(['dentysta']); }
-  await loadBaza();
+  await loadBaza(); if (BOSS) loadAct();
   await tick();
   if ($('status').textContent === 'PRACUJE' && !polling) polling = setInterval(tick, 1500);
   setInterval(() => { if (!polling) tick(); }, 5000);  // co 5 s sprawdza, czy SCOUT nadal działa
