@@ -135,3 +135,31 @@ obi markt
 apteka ziko
 apteka gemini
 apteka dbam o zdrowie
+
+# --- duże sieci i korporacje (decyzje w centrali, nie w oddziale) – dopisane pod segment „większe firmy”
+bricoman
+onninen
+leroy merlin
+castorama
+obi
+brico
+makro
+selgros
+eurocash
+dhl
+ups
+fedex
+dpd
+inpost
+gls
+poczta polska
+schenker
+kuehne
+rhenus
+hellmann
+raben
+kaufland
+auchan
+ikea
+agata meble
+black red white

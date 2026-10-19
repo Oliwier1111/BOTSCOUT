@@ -26,6 +26,14 @@ def _activity_bonus(b: Business) -> tuple[int, list[str]]:
     return bonus, reasons
 
 
+def _unverified(a: Audit) -> bool:
+    """Błąd, który może być blokadą robota albo chwilową awarią – potwierdzony martwy to tylko 404/410/zła domena."""
+    e = (a.error or "").lower()
+    if a.status_code in (404, 410) or "name or service not known" in e or "nameresolution" in e or "getaddrinfo" in e:
+        return False
+    return True
+
+
 SIZE_BONUS = {"DUŻA": 25, "ŚREDNIA": 15, "MAŁA": 0, "NIEZNANA": 0}
 
 
@@ -85,6 +93,12 @@ def _score_lead(b: Business, a: Audit | None, pitch: str = "", segment: str | No
         s = min(100, 80 + bonus)
         return Lead(b, a, s, _tier(s, segment), "TYLKO_SOCIAL", [f"zamiast strony tylko profil: {b.website}"] + extra,
                     pitch or "Macie tylko profil w social mediach/portalu – własna strona da lepszą pozycję w Google i zaufanie.")
+    if a and not a.reachable and not a.is_parked and _unverified(a):
+        # strona mogła zablokować automat (HTTP 403/429/5xx, timeout, błąd połączenia) – NIE znaczy, że nie działa
+        s = max(0, min(45, 35 + bonus))
+        return Lead(b, a, s, _tier(s, segment), "STRONA_NIE_DZIALA",
+                    [f"nie udało się automatycznie sprawdzić strony ({a.error or a.status_code}) – otwórz ją ręcznie przed rozmową"] + extra,
+                    pitch or "")
     if a and not a.reachable and not a.is_parked and segment == "duze" and b.source == "openstreetmap" and b.size in ("", "NIEZNANA"):
         # adres z mapy bywa nieaktualny – firma mogła zmienić domenę; najpierw sprawdzić w Google
         s = max(0, min(60, (50 if b.phone else 30) + bonus))
