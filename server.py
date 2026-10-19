@@ -130,7 +130,9 @@ def _who(request: Request) -> str:
 def _is_boss(request: Request) -> bool:
     """Widok aktywności zespołu: tylko Prezes (Caddy przekazuje X-HQ-Rola); lokalnie bez nagłówka – tak."""
     rola = request.headers.get("x-hq-rola")
-    return rola is None or rola.lower() == "prezes"
+    if rola is None:  # na serwerze (SCOUT_WYMAGAJ_ROLI=1) brak nagłówka z HQ = brak dostępu
+        return os.getenv("SCOUT_WYMAGAJ_ROLI", "0") != "1"
+    return rola.lower() == "prezes"
 
 
 @app.get("/api/scout/aktywnosc")
