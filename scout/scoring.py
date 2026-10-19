@@ -47,6 +47,17 @@ def _tier(score: int, segment: str = "male") -> str:
 
 
 def score_lead(b: Business, a: Audit | None, pitch: str = "", segment: str | None = None) -> Lead:
+    lead = _score_lead(b, a, pitch, segment)
+    import scout_config as config
+
+    if (segment or config.SEGMENT) == "duze" and lead.score > 45 and b.size in ("MAŁA", "NIEZNANA") and not b.nip:
+        # w trybie większych firm mała / nieznana firma nie może wyprzedzić średnich i dużych
+        lead.score = 45 if b.size == "NIEZNANA" else 38
+        lead.tier = _tier(lead.score, "duze")
+    return lead
+
+
+def _score_lead(b: Business, a: Audit | None, pitch: str = "", segment: str | None = None) -> Lead:
     import scout_config as config
 
     segment = segment or config.SEGMENT
