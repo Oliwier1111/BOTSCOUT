@@ -104,6 +104,31 @@ def _noop(_: str) -> None:
 
 
 # ---------------------------------------------------------------- Google
+PLACES_COUNTER = config.DATA_DIR / "places_licznik.json"
+
+
+def places_budget_left(n: int = 1) -> bool:
+    """Liczy zapytania do Places w ciągu doby; zwraca False, gdy przekroczono SCOUT_PLACES_DZIENNIE."""
+    import datetime as dt
+    import json
+
+    today = dt.date.today().isoformat()
+    try:
+        d = json.loads(PLACES_COUNTER.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = {}
+    if d.get("dzien") != today:
+        d = {"dzien": today, "zapytan": 0}
+    if d["zapytan"] + n > config.PLACES_DAILY_LIMIT:
+        return False
+    d["zapytan"] += n
+    try:
+        PLACES_COUNTER.parent.mkdir(parents=True, exist_ok=True)
+        PLACES_COUNTER.write_text(json.dumps(d), encoding="utf-8")
+    except OSError:
+        pass
+    return True
+
 def search_google_places(query: str, city: str, category: str, max_results: int, log: Log = _noop) -> list[Business]:
     headers = {
         "Content-Type": "application/json",
@@ -113,6 +138,9 @@ def search_google_places(query: str, city: str, category: str, max_results: int,
     body = {"textQuery": query, "languageCode": "pl", "regionCode": "PL", "pageSize": 20}
     out: list[Business] = []
     while len(out) < max_results:
+        if not places_budget_left():
+            log(f"Dzienny limit zapytań do Google Places ({config.PLACES_DAILY_LIMIT}) wyczerpany – kończę na tym, co jest. Zwiększ SCOUT_PLACES_DZIENNIE w .env, jeśli to zamierzone.")
+            break
         r = requests.post(PLACES_URL, json=body, headers=headers, timeout=config.REQUEST_TIMEOUT)
         if r.status_code != 200:
             log(f"Google Places błąd {r.status_code}: {r.text[:200]}")

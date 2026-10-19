@@ -112,6 +112,9 @@ def categories_for(segment: str | None = None) -> list[str]:
 USE_REGISTRY = os.getenv("SCOUT_REJESTRY", "1") == "1"
 REGISTRY_MAX = int(os.getenv("SCOUT_REJESTRY_MAX", "80"))
 
+# Twardy dzienny limit zapytań do Google Places (jedno zapytanie ≈ kilka groszy). 150 ≈ kilkanaście zł dziennie przy maksymalnym użyciu.
+PLACES_DAILY_LIMIT = int(os.getenv("SCOUT_PLACES_DZIENNIE", "150"))
+
 # Ile wyników z Google na jedno zapytanie (max 60 = 3 strony po 20)
 MAX_RESULTS_PER_QUERY = int(os.getenv("SCOUT_MAX_PER_QUERY", "40"))
 

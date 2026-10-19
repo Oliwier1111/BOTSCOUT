@@ -16,3 +16,4 @@ data/baza_leadow.json
 data/*.tmp
 data/aktywnosc.jsonl
 data/obecnosc.json
+data/places_licznik.json
