@@ -74,7 +74,7 @@ def _score_lead(b: Business, a: Audit | None, pitch: str = "", segment: str | No
     bonus += sb
     extra = sx + extra
 
-    if not b.website and segment == "duze" and b.source == "openstreetmap":
+    if not b.website and segment == "duze" and (b.source == "openstreetmap" or b.size in ("DUŻA", "ŚREDNIA")):
         # Większe firmy prawie zawsze mają stronę – w OSM po prostu jej nie wpisano. To lead „do sprawdzenia”, nie pewniak.
         s = max(0, min(60, (50 if b.phone else 30) + bonus))
         return Lead(b, a, s, _tier(s, segment), "BRAK_STRONY",
