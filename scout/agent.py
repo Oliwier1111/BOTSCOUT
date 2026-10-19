@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, fields
 
 import scout_config as config
-from . import contacts, discovery, export, filters, outreach, pagespeed, scoring, visual
+from . import baza, contacts, discovery, export, filters, firma, outreach, pagespeed, scoring, visual
 from .audit import audit_site
 from .models import Audit, Business, Lead
 
@@ -103,9 +103,11 @@ class ScoutAgent:
         visual_top: int = 25,
         mock: bool | None = None,
         find_contacts: bool | None = None,
+        segment: str | None = None,
     ) -> list[Lead]:
+        segment = (segment or config.SEGMENT).lower()
         cities = cities or config.DEFAULT_CITIES
-        categories = categories or config.DEFAULT_CATEGORIES
+        categories = categories or config.categories_for(segment)
         max_per_query = max_per_query or config.MAX_RESULTS_PER_QUERY
         min_score = config.MIN_LEAD_SCORE if min_score is None else min_score
         visual_ai = config.USE_VISUAL_AI if visual_ai is None else visual_ai
@@ -121,10 +123,11 @@ class ScoutAgent:
             self.state["status"] = "PRACUJE"
             self.state["mode"] = "mock" if mock else "real"
         try:
-            self.log(f"Start ({'MOCK' if mock else 'REAL'}): {', '.join(cities)} × {len(categories)} branż")
+            self.log(f"Start ({'MOCK' if mock else 'REAL'}, {'większe firmy' if segment == 'duze' else 'małe firmy'}): "
+                     f"{', '.join(cities)} × {len(categories)} branż")
             self._progress("szukanie firm", 0, len(cities) * len(categories))
             found = _mock_businesses() if mock else discovery.discover(cities, categories, max_per_query, self.log)
-            local = filters.filter_local(found, self.log)
+            local = filters.filter_local(found, self.log, segment)
 
             audits = self._audit_all(local, use_pagespeed and not mock, mock)
 
@@ -136,6 +139,14 @@ class ScoutAgent:
                 contacts.enrich_owners(local, self.log)
                 contacts.enrich_linkedin(local, self.log)
 
+            # Większe firmy: forma prawna, kapitał, PKD, zarząd (Biała lista VAT + KRS) i szacunek wielkości
+            if not mock:
+                if config.USE_REGISTRY:
+                    self._progress("rejestry KRS / VAT", 0, 0)
+                    firma.enrich(local, audits, self.log)
+                else:
+                    firma.enrich(local, audits, self.log, limit=0)
+
             # Ocena wizualna tylko dla najbardziej obiecujących stron (oszczędza budżet)
             pitches: dict[int, str] = {}
             ok, why = visual.available()
@@ -143,7 +154,7 @@ class ScoutAgent:
                 self.log(f"Ocena wizualna AI wyłączona: {why}")
             if visual_ai and not mock and ok:
                 pre = [
-                    (i, scoring.score_lead(b, audits.get(i)))
+                    (i, scoring.score_lead(b, audits.get(i), segment=segment))
                     for i, b in enumerate(local)
                     if audits.get(i) and audits[i].reachable and not audits[i].is_parked and not audits[i].is_social_only
                 ]
@@ -158,11 +169,14 @@ class ScoutAgent:
                     pitches[i] = visual.review(audits[i], local[i].name, local[i].category, self.budget, self.log)
                     self._progress("ocena wizualna", n, len(chosen))
 
-            leads = [scoring.score_lead(b, audits.get(i), pitches.get(i, "")) for i, b in enumerate(local)]
+            leads = [scoring.score_lead(b, audits.get(i), pitches.get(i, ""), segment) for i, b in enumerate(local)]
             leads = sorted((l for l in leads if l.score >= min_score), key=lambda l: -l.score)
             if not found:
                 self.log("Nie znaleziono żadnych firm. Sprawdź pisownię miasta (np. „Poznań”, „Komorniki”) i połączenie z internetem.")
             self.leads = leads
+            if not mock:
+                nowe = baza.merge(leads, segment, {l.key: scoring.call_script(l, segment) for l in leads})
+                self.log(f"Baza leadów: {nowe} nowych firm do zadzwonienia (statusy rozmów zachowane)")
             if not mock:
                 outreach.prepare(leads, self.log)  # tylko szkice; nic nie jest wysyłane
 
@@ -207,9 +221,12 @@ class ScoutAgent:
         self._progress("audyt stron", 0, len(todo))
 
         def work(i: int) -> tuple[int, Audit]:
-            a = audit_site(local[i].website)
-            if use_pagespeed and a.reachable and not a.is_parked and not a.is_social_only:
-                pagespeed.run_pagespeed(a, self.log)
+            try:
+                a = audit_site(local[i].website)
+                if use_pagespeed and a.reachable and not a.is_parked and not a.is_social_only:
+                    pagespeed.run_pagespeed(a, self.log)
+            except Exception as e:  # noqa: BLE001 - jeden zły adres nie może zatrzymać całego wyszukiwania
+                a = Audit(url=local[i].website, error=f"nie da się sprawdzić strony ({type(e).__name__})")
             return i, a
 
         done = 0

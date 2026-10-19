@@ -68,6 +68,14 @@ class RunRequest(BaseModel):
     ai_top: int = 25
     mock: bool | None = None
     kontakty: bool | None = None
+    segment: str | None = None
+
+
+class CrmRequest(BaseModel):
+    key: str
+    status: str | None = None
+    notatka: str | None = None
+    oddzwonic: str | None = None
 
 
 class SettingsRequest(BaseModel):
@@ -94,7 +102,8 @@ def state():
 def run(req: RunRequest):
     started = agent.start(cities=req.miasta, categories=req.branze, max_per_query=req.limit,
                           min_score=req.min_wynik, visual_ai=req.ocena_ai, use_pagespeed=req.pagespeed,
-                          visual_top=req.ai_top, mock=req.mock, find_contacts=req.kontakty)
+                          visual_top=req.ai_top, mock=req.mock, find_contacts=req.kontakty,
+                          segment=req.segment if req.segment in ("duze", "male") else None)
     if not started:
         raise HTTPException(409, "SCOUT już pracuje")
     return {"ok": True, "status": "PRACUJE"}
@@ -113,6 +122,45 @@ def leads(limit: int = 500):
     return out
 
 
+def _who(request: Request) -> str:
+    """Kto zmienia status: login z HQ (Caddy przekazuje X-HQ-User), lokalnie „lokalnie”."""
+    return (request.headers.get("x-hq-user") or "lokalnie")[:40]
+
+
+@app.get("/api/scout/baza")
+def baza_list(request: Request):
+    from scout import baza
+
+    recs = baza.all_records()
+    for r in recs:
+        shot = ((r["lead"].get("audit") or {}).get("screenshot_path")) or ""
+        if shot:
+            r["lead"]["screenshot_desktop"] = "/zrzuty/" + Path(shot).name
+            r["lead"]["screenshot_mobile"] = "/zrzuty/" + Path(shot).name.replace("_desktop", "_mobile")
+    return {"ja": _who(request), "statusy": baza.STATUSY, "rekordy": recs}
+
+
+@app.post("/api/scout/crm")
+def crm_update(req: CrmRequest, request: Request):
+    from scout import baza
+
+    try:
+        return baza.update(req.key, _who(request), req.status, req.notatka, req.oddzwonic)
+    except KeyError:
+        raise HTTPException(404, "Nie ma takiej firmy w bazie")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/scout/baza.csv")
+def baza_csv():
+    from scout import baza
+    import datetime as dt
+
+    return Response(baza.csv_export(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="baza_leadow_{dt.date.today()}.csv"'})
+
+
 @app.get("/api/scout/download/{kind}")
 def download(kind: str):
     path = agent.get_state()["last_files"].get(kind)
@@ -125,7 +173,10 @@ def download(kind: str):
 def get_config():
     return {
         "keys": {k: bool(getattr(config, v)) for k, v in KEY_NAMES.items()},
-        "categories": config.DEFAULT_CATEGORIES,
+        "categories": config.categories_for(),
+        "categories_duze": config.DEFAULT_CATEGORIES_DUZE,
+        "categories_male": config.DEFAULT_CATEGORIES_MALE,
+        "segment": config.SEGMENT,
         "cities": config.DEFAULT_CITIES,
         "budget_usd": config.TOTAL_BUDGET_USD,
         "mode": config.MODE,

@@ -68,7 +68,7 @@ def is_social(url: str) -> bool:
     return any(d == h or d.endswith("." + h) or h in d for h in SOCIAL_HOSTS)
 
 
-def chain_reason(b: Business, chains: list[str]) -> str | None:
+def chain_reason(b: Business, chains: list[str], segment: str | None = None) -> str | None:
     name = f" {_norm(b.name)} "
     dom = domain_of(b.website)
     for c in chains:
@@ -76,7 +76,8 @@ def chain_reason(b: Business, chains: list[str]) -> str | None:
             return f"domena sieci ({c})"
         if f" {c} " in name:
             return f"sieć/marka „{c}”"
-    if b.reviews and b.reviews > config.MAX_REVIEWS_FOR_LOCAL:
+    limit = config.MAX_REVIEWS_DUZE if (segment or config.SEGMENT) == "duze" else config.MAX_REVIEWS_FOR_LOCAL
+    if b.reviews and b.reviews > limit:
         return f"bardzo dużo opinii ({b.reviews}) – raczej duża firma"
     return None
 
@@ -94,7 +95,7 @@ def dedupe(items: list[Business]) -> list[Business]:
     return out
 
 
-def filter_local(items: list[Business], log=lambda _: None) -> list[Business]:
+def filter_local(items: list[Business], log=lambda _: None, segment: str | None = None) -> list[Business]:
     chains = load_chains()
     before = len(items)
     items = dedupe(items)
@@ -105,7 +106,7 @@ def filter_local(items: list[Business], log=lambda _: None) -> list[Business]:
     kept = []
     skipped = 0
     for b in items:
-        why = chain_reason(b, chains)
+        why = chain_reason(b, chains, segment)
         if not why and domain_of(b.website) in chain_domains:
             why = "wiele placówek pod jedną domeną"
         if why:

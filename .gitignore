@@ -9,3 +9,8 @@ data/cache_kontaktow.json
 data/maile_robocze.json
 data/wyslane.json
 data/wypisani.txt
+.claude/
+data/cache_osm.json
+data/cache_rejestrow.json
+data/baza_leadow.json
+data/*.tmp

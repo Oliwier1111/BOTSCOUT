@@ -34,9 +34,14 @@ PLACES_FIELDS = ",".join(
 
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 ]
+# Overpass odrzuca (HTTP 406) nagłówki udające przeglądarkę – przedstawiamy się uczciwie, jak każe regulamin OSM.
+OSM_UA = "SparkScaleScout/1.1 (+https://spark-scale.pl)"
+OSM_CACHE = config.DATA_DIR / "cache_osm.json"
+OSM_CACHE_H = 24
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 # Polska nazwa branży -> tagi OpenStreetMap
@@ -62,6 +67,33 @@ OSM_TAGS = {
     "psycholog": ['"healthcare"="psychotherapist"', '"healthcare"="psychologist"'],
     "optyk": ['"shop"="optician"'],
     "firma remontowa": ['"craft"="builder"', '"office"="construction_company"'],
+    # --- segment: większe firmy
+    # biura firm (office=company) – najliczniejsza darmowa grupa firm B2B w OpenStreetMap
+    "biura firm": ['"office"="company"'],
+    "producent": ['"office"="company"]["industrial"', '"man_made"="works"]["name"', '"industrial"="factory"]["name"'],
+    "zakład produkcyjny": ['"man_made"="works"]["name"', '"industrial"="factory"]["name"', '"building"="industrial"]["name"'],
+    "hurtownia": ['"shop"="wholesale"', '"wholesale"', '"office"="company"]["name"~"[Hh]urtowni"'],
+    "firma budowlana": ['"office"="construction_company"', '"craft"="builder"]["name"~"[Ss]p[.] |S[.]A[.]"'],
+    "deweloper": ['"office"="property_developer"', '"office"="company"]["name"~"[Dd]evelop|[Dd]ewelop"'],
+    "firma transportowa": ['"office"="logistics"', '"office"="company"]["name"~"[Tt]rans"'],
+    "spedycja": ['"office"="logistics"', '"office"="company"]["name"~"[Ss]pedy|[Ll]ogist"'],
+    "firma logistyczna": ['"office"="logistics"', '"industrial"="warehouse"]["name"', '"building"="warehouse"]["name"'],
+    "salon samochodowy": ['"shop"="car"'],
+    "hotel": ['"tourism"="hotel"'],
+    "centrum medyczne": ['"amenity"="clinic"', '"healthcare"="clinic"', '"healthcare"="centre"'],
+    "klinika": ['"amenity"="clinic"', '"amenity"="hospital"]["operator:type"="private"'],
+    "biuro nieruchomości": ['"office"="estate_agent"'],
+    "firma IT": ['"office"="it"', '"office"="telecommunication"'],
+    "agencja pracy": ['"office"="employment_agency"'],
+    "producent mebli": ['"craft"="carpenter"', '"shop"="furniture"]["craft"', '"office"="company"]["name"~"[Mm]eb"'],
+    "okna i drzwi": ['"shop"="doors"', '"shop"="windows"', '"craft"="window_construction"'],
+    "firma instalacyjna": ['"craft"="hvac"', '"craft"="plumber"]["name"~"[Ss]p[.] |S[.]A[.]"', '"craft"="electrician"]["name"~"[Ss]p[.] |S[.]A[.]"'],
+    "maszyny i urządzenia": ['"shop"="trade"', '"office"="company"]["name"~"[Mm]aszyn|[Tt]echni"'],
+    "szkoła prywatna": ['"amenity"="school"]["operator:type"="private"', '"amenity"="school"]["name"~"[Pp]rywatn|[Nn]iepubliczn|[Ss]połeczn"'],
+    "biuro projektowe": ['"office"="architect"', '"office"="engineer"'],
+    "firma ochroniarska": ['"office"="security"'],
+    "agencja reklamowa": ['"office"="advertising_agency"'],
+    "ubezpieczenia": ['"office"="insurance"'],
 }
 
 Log = Callable[[str], None]
@@ -117,7 +149,7 @@ def search_google_places(query: str, city: str, category: str, max_results: int,
 def _overpass_query(city: str, tags: Iterable[str]) -> str:
     parts = "".join(f"nwr(area.a)[{t}];" for t in tags)
     return (
-        f'[out:json][timeout:60];area["name"="{city}"]["boundary"="administrative"]->.a;'
+        f'[out:json][timeout:110];area["name"="{city}"]["boundary"="administrative"]->.a;'
         f"({parts});out center tags;"
     )
 
@@ -134,27 +166,64 @@ def osm_contacts(t: dict) -> dict:
             "contacts_note": "kontakty z OpenStreetMap" if emails or socials else ""}
 
 
+def _overpass_fetch(city: str, category: str, tags, log: Log) -> dict | None:
+    """Zapytanie do Overpass z pamięcią na dobę i ponawianiem po kolejnych serwerach (3 rundy)."""
+    import datetime as dt
+    import json
+
+    key = f"{city.lower()}|{category.lower()}"
+    try:
+        cache = json.loads(OSM_CACHE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cache = {}
+    hit = cache.get(key)
+    if hit and (dt.datetime.now() - dt.datetime.fromisoformat(hit["_t"])).total_seconds() < OSM_CACHE_H * 3600:
+        log(f"OpenStreetMap: {category} / {city} z pamięci (do {OSM_CACHE_H} h)")
+        return hit["data"]
+    q = _overpass_query(city, tags)
+    for rnd in range(3):
+        for url in OVERPASS_URLS:
+            host = url.split("/")[2]
+            try:
+                r = requests.post(url, data={"data": q}, headers={"User-Agent": OSM_UA}, timeout=120)
+            except requests.RequestException as e:
+                log(f"OpenStreetMap ({host}) nie odpowiada: {type(e).__name__}")
+                continue
+            if r.status_code == 200:
+                try:
+                    data = r.json()
+                except ValueError:
+                    log(f"OpenStreetMap ({host}) zwrócił nieczytelną odpowiedź")
+                    continue
+                remark = str(data.get("remark") or "")
+                if "error" in remark.lower() or "timed out" in remark.lower():
+                    log(f"OpenStreetMap ({host}) przerwał zapytanie: {remark[:80]}")
+                    continue  # pusty wynik z błędem – nie zapisujemy go w pamięci
+                cache[key] = {"_t": dt.datetime.now().isoformat(), "data": data}
+                try:
+                    OSM_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                    OSM_CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+                except OSError:
+                    pass
+                return data
+            log(f"OpenStreetMap ({host}) błąd {r.status_code}, próbuję inny serwer")
+        if rnd < 2:
+            log(f"Wszystkie serwery OpenStreetMap zajęte – czekam {15 * (rnd + 1)} s i próbuję ponownie")
+            time.sleep(15 * (rnd + 1))
+    return None
+
+
 def search_osm(city: str, category: str, max_results: int, log: Log = _noop) -> list[Business]:
-    tags = OSM_TAGS.get(category.lower())
+    tags = {k.lower(): v for k, v in OSM_TAGS.items()}.get(category.lower())
     if not tags:
         log(f"OSM: brak mapowania dla branży „{category}” (dodaj ją do OSM_TAGS)")
         return []
-    headers = {"User-Agent": config.USER_AGENT}
-    r = None
-    for url in OVERPASS_URLS:  # darmowe serwery bywają przeciążone – próbujemy kolejnego
-        try:
-            r = requests.post(url, data={"data": _overpass_query(city, tags)}, headers=headers, timeout=90)
-        except requests.RequestException as e:
-            log(f"OpenStreetMap ({url.split('/')[2]}) nie odpowiada: {type(e).__name__}")
-            continue
-        if r.status_code == 200:
-            break
-        log(f"OpenStreetMap ({url.split('/')[2]}) błąd {r.status_code}, próbuję inny serwer")
-    if r is None or r.status_code != 200:
-        log("Nie udało się pobrać firm z OpenStreetMap – sprawdź internet albo spróbuj za kilka minut.")
+    data = _overpass_fetch(city, category, tags, log)
+    if data is None:
+        log("Nie udało się pobrać firm z OpenStreetMap – darmowe serwery są przeciążone, spróbuj za kilka minut.")
         return []
     out: list[Business] = []
-    for el in r.json().get("elements", []):
+    for el in data.get("elements", []):
         t = el.get("tags", {})
         name = t.get("name")
         if not name:
@@ -174,7 +243,7 @@ def search_osm(city: str, category: str, max_results: int, log: Log = _noop) -> 
                 maps_url=f"https://www.google.com/maps/search/?api=1&query={lat},{lon}" if lat else "",
                 source="openstreetmap",
                 source_id=f"{el.get('type')}/{el.get('id')}",
-                types=[k + "=" + v for k, v in t.items() if k in ("amenity", "shop", "office", "craft", "healthcare")],
+                types=[k + "=" + v for k, v in t.items() if k in ("amenity", "shop", "office", "craft", "healthcare", "industrial", "man_made", "tourism")],
                 **osm_contacts(t),
             )
         )

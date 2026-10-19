@@ -76,12 +76,50 @@ DEFAULT_CATEGORIES = [
     "firma remontowa",
 ]
 
+# Segment: "duze" = większe firmy (B2B, sp. z o.o., producenci, hurtownie…), "male" = lokalne gabinety i usługi.
+SEGMENT = os.getenv("SCOUT_SEGMENT", "duze").lower()
+DEFAULT_CATEGORIES_DUZE = [
+    "biura firm",
+    "producent",
+    "zakład produkcyjny",
+    "hurtownia",
+    "firma budowlana",
+    "deweloper",
+    "firma transportowa",
+    "spedycja",
+    "firma logistyczna",
+    "salon samochodowy",
+    "hotel",
+    "centrum medyczne",
+    "klinika",
+    "biuro nieruchomości",
+    "firma IT",
+    "agencja pracy",
+    "producent mebli",
+    "okna i drzwi",
+    "firma instalacyjna",
+    "maszyny i urządzenia",
+    "szkoła prywatna",
+]
+DEFAULT_CATEGORIES_MALE = DEFAULT_CATEGORIES
+
+
+def categories_for(segment: str | None = None) -> list[str]:
+    return DEFAULT_CATEGORIES_DUZE if (segment or SEGMENT) == "duze" else DEFAULT_CATEGORIES_MALE
+
+
+# Rejestry (Biała lista VAT + KRS): forma prawna, kapitał, PKD, wiek firmy – darmowe, bez klucza
+USE_REGISTRY = os.getenv("SCOUT_REJESTRY", "1") == "1"
+REGISTRY_MAX = int(os.getenv("SCOUT_REJESTRY_MAX", "80"))
+
 # Ile wyników z Google na jedno zapytanie (max 60 = 3 strony po 20)
 MAX_RESULTS_PER_QUERY = int(os.getenv("SCOUT_MAX_PER_QUERY", "40"))
 
 # --- Filtrowanie sieciówek ---------------------------------------------
 # Firma z większą liczbą opinii najczęściej jest siecią lub dużą marką
 MAX_REVIEWS_FOR_LOCAL = int(os.getenv("SCOUT_MAX_REVIEWS", "1500"))
+# W segmencie "duze" dużo opinii to zaleta, nie sieciówka (sieci i tak odsiewa lista + wspólna domena)
+MAX_REVIEWS_DUZE = int(os.getenv("SCOUT_MAX_REVIEWS_DUZE", "20000"))
 # Ta sama domena u tylu firm w wynikach => sieć
 CHAIN_DOMAIN_THRESHOLD = 3
 

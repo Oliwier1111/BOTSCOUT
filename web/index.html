@@ -85,6 +85,26 @@ a{color:var(--info)}
 .keyform{display:grid;gap:12px;padding:0 16px 16px}
 .free{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font:600 13px var(--f-body);color:var(--accent)}
 .dl{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;gap:0;border:1px solid var(--line);width:max-content;max-width:100%;flex-wrap:wrap}
+.seg button{font:600 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;background:transparent;color:var(--muted);border:0;padding:9px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-dim);color:var(--accent)}
+.call{border:1px solid var(--accent-dim);background:#0a1a16;padding:12px;display:grid;gap:10px}
+.tel{font:700 22px var(--f-display);letter-spacing:.06em;color:var(--accent);text-decoration:none;overflow-wrap:anywhere}
+.sts{display:flex;flex-wrap:wrap;gap:6px}
+.sts .chip{font-size:11.5px;padding:5px 9px}
+textarea{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);font:14px var(--f-body);padding:8px 10px;border-radius:2px;width:100%;min-height:64px;resize:vertical}
+input[type=datetime-local],input[type=search]{background:var(--panel-2);border:1px solid var(--line);color:var(--fg);font:14px var(--f-body);padding:7px 9px;border-radius:2px;color-scheme:dark;max-width:100%}
+.script{display:grid;gap:6px;font-size:13.5px}
+.script b{font:600 10.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--warn);display:block}
+.script details summary{cursor:pointer;color:var(--info);font-size:13px}
+.st-badge{font:500 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.st-oddzwonic,.st-wyslac_oferte{color:var(--warn);border-color:#4d3f1a}.st-spotkanie,.st-zainteresowany{color:var(--accent);border-color:var(--accent-dim)}
+.st-odmowa,.st-zly_numer,.st-nie_dzwonic{color:#8a6a66}.st-due{background:#4d3f1a;color:#ffe2a0}
+.size{font:600 10px var(--f-mono);letter-spacing:.1em;padding:2px 6px;border:1px solid var(--info);color:var(--info);margin-left:6px;vertical-align:2px}
+.size.MAŁA,.size.NIEZNANA{border-color:var(--line);color:var(--muted)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+.saved{color:var(--accent);font:11px var(--f-mono)}
+@media (max-width:600px){.lead summary .st-badge{grid-column:2;justify-self:start}}
 </style>
 </head>
 <body>
@@ -116,8 +136,12 @@ a{color:var(--info)}
   </section>
 
   <section class="box">
-    <div class="box-h"><div><h1 class="h">Nowe wyszukiwanie</h1><div class="sub">Miasto + branże → firmy bez strony lub ze słabą stroną</div></div></div>
+    <div class="box-h"><div><h1 class="h">Nowe wyszukiwanie</h1><div class="sub">Miasto + branże → firmy ze słabą stroną, dane z KRS, skrypt rozmowy</div></div></div>
     <form id="search">
+      <div class="seg" role="group" aria-label="Segment klientów">
+        <button type="button" data-seg="duze" aria-pressed="true">Większe firmy (B2B)</button>
+        <button type="button" data-seg="male" aria-pressed="false">Małe firmy / gabinety</button>
+      </div>
       <div class="row">
         <label for="cities">Miasta (po przecinku)<input id="cities" type="text" value="Poznań"></label>
         <label for="custom">Inne branże (po przecinku)<input id="custom" type="text" placeholder="np. tapicer, studio tatuażu"></label>
@@ -149,13 +173,19 @@ a{color:var(--info)}
   <div class="grid">
     <section class="box">
       <div class="box-h">
-        <div><h2 class="h">Leady</h2><div class="sub" id="leadSub">Brak wyników – uruchom wyszukiwanie</div></div>
+        <div><h2 class="h">Do dzwonienia</h2><div class="sub" id="leadSub">Baza jest pusta – uruchom wyszukiwanie</div></div>
         <div class="dl" id="dl" hidden>
-          <a class="btn ghost" href="/api/scout/download/csv">CSV / Excel</a>
-          <a class="btn ghost" href="/api/scout/download/html" target="_blank" rel="noopener">Raport</a>
+          <a class="btn ghost" href="/api/scout/baza.csv">Baza CSV / Excel</a>
+          <a class="btn ghost" href="/api/scout/download/html" target="_blank" rel="noopener">Raport ostatniego</a>
         </div>
       </div>
       <div class="filters" id="filters" hidden></div>
+      <div class="tools" id="tools" hidden>
+        <input id="q" type="search" placeholder="szukaj: nazwa, miasto, branża, NIP" style="flex:1;min-width:180px" aria-label="Szukaj w bazie">
+        <select id="fSize" aria-label="Wielkość" style="width:auto"><option value="">każda wielkość</option><option value="DUŻA">tylko duże</option><option value="ŚREDNIA+">średnie i duże</option><option value="MAŁA">tylko małe</option></select>
+        <select id="fSeg" aria-label="Segment" style="width:auto"><option value="">oba segmenty</option><option value="duze">większe firmy</option><option value="male">małe firmy</option></select>
+        <label class="free" for="fTel" style="color:var(--fg);font-weight:500"><input id="fTel" type="checkbox" checked> tylko z telefonem</label>
+      </div>
       <div id="leads"><div class="empty">Wpisz miasto, zaznacz branże i kliknij „Szukaj”. Każda firma pokaże tu wynik 0–100, listę rzeczy do zmiany na stronie, kontakt i gotowe zdanie na pierwszy kontakt.</div></div>
     </section>
     <section class="box" id="mailBox" style="grid-column:1/-1">
@@ -184,7 +214,7 @@ a{color:var(--info)}
 const LABEL = {BRAK_STRONY:'Brak strony',TYLKO_SOCIAL:'Tylko social',STRONA_NIE_DZIALA:'Strona nie działa',SLABA_STRONA:'Słaba strona',OK:'Strona OK'};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = id => document.getElementById(id);
-let LEADS = [], filter = 'ALL', selected = new Set(['dentysta']), lastRun = null, polling = null;
+let LEADS = [], filter = 'DO', selected = new Set(), lastRun = null, polling = null, STATUSY = {}, JA = '', CFG = null, segment = 'duze', openKey = null;
 
 const OFFLINE = 'Brak połączenia z SCOUT-em. Czarne okno SCOUT musi być cały czas otwarte. Jeśli je zamknąłeś albo pokazuje błąd, uruchom start.bat jeszcze raz i odśwież tę stronę (F5).';
 async function api(path, opts) {
@@ -218,49 +248,132 @@ function renderKeys(cfg) {
 function renderCats(cats) {
   $('cats').innerHTML = cats.map(c => `<button type="button" class="chip" data-c="${esc(c)}" aria-pressed="${selected.has(c)}">${esc(c)}</button>`).join('');
 }
+function setSegment(seg) {
+  segment = seg;
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.seg === seg));
+  const cats = CFG ? (seg === 'duze' ? CFG.categories_duze : CFG.categories_male) : [];
+  selected = new Set(cats.slice(0, seg === 'duze' ? 6 : 1));
+  renderCats(cats);
+}
+
+const DONE = new Set(['odmowa', 'zly_numer', 'nie_dzwonic']);
+const HOT = new Set(['spotkanie', 'zainteresowany', 'wyslac_oferte']);
+const due = c => c.status === 'oddzwonic' && !!c.oddzwonic && new Date(c.oddzwonic) <= new Date();
+const phoneOf = l => l.business.phone || ((l.audit || {}).phones || [])[0] || '';
+const GROUPS = [
+  ['DO', 'Do zrobienia', c => !DONE.has(c.status) && !HOT.has(c.status)],
+  ['TERAZ', 'Oddzwonić teraz', c => due(c)],
+  ['nowy', 'Nowe', c => c.status === 'nowy'],
+  ['GORACE', 'Spotkania / oferty', c => HOT.has(c.status)],
+  ['ZAMK', 'Zamknięte', c => DONE.has(c.status)],
+  ['ALL', 'Wszystkie', () => true]];
+
+function visible() {
+  const q = $('q').value.trim().toLowerCase(), fs = $('fSize').value, fg = $('fSeg').value, tel = $('fTel').checked;
+  const g = GROUPS.find(x => x[0] === filter) || GROUPS[0];
+  return LEADS.filter(l => g[2](l.crm)).filter(l => {
+    const b = l.business;
+    if (tel && !phoneOf(l)) return false;
+    if (fg && l.segment !== fg) return false;
+    if (fs === 'DUŻA' && b.size !== 'DUŻA') return false;
+    if (fs === 'ŚREDNIA+' && !['DUŻA', 'ŚREDNIA'].includes(b.size)) return false;
+    if (fs === 'MAŁA' && b.size !== 'MAŁA') return false;
+    if (q && ![b.name, b.legal_name, b.city, b.category, b.nip, b.address].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => (due(b.crm) - due(a.crm)) || (b.score - a.score));
+}
 
 function renderFilters() {
-  const counts = {}; LEADS.forEach(l => counts[l.lead_type] = (counts[l.lead_type] || 0) + 1);
-  const items = [['ALL', 'Wszystkie', LEADS.length], ...Object.keys(LABEL).filter(k => counts[k]).map(k => [k, LABEL[k], counts[k]])];
-  if (!items.some(i => i[0] === filter)) filter = 'ALL';
-  $('filters').hidden = !LEADS.length;
-  $('filters').innerHTML = items.map(([k, n, c]) => `<button class="chip" data-k="${k}" aria-pressed="${k === filter}">${esc(n)}<b>${c}</b></button>`).join('');
+  $('filters').hidden = $('tools').hidden = !LEADS.length;
+  $('filters').innerHTML = GROUPS.map(([k, n, f]) => `<button class="chip" data-k="${k}" aria-pressed="${k === filter}">${esc(n)}<b>${LEADS.filter(l => f(l.crm)).length}</b></button>`).join('');
+}
+
+function scriptHtml(sc) {
+  if (!sc) return '';
+  const row = (t, v) => `<div><b>${t}</b>${esc(v)}</div>`;
+  return `<div class="script"><h4>Skrypt rozmowy</h4>${row('1. Otwarcie', sc.otwarcie)}${row('2. Zgoda na rozmowę', sc.zgoda)}${row('3. Hak z audytu', sc.hak)}
+    ${row('4. Pytanie', sc.pytanie)}${row('5. Cel', sc.cel)}
+    <details><summary>Obiekcje i odpowiedzi</summary>${sc.obiekcje.map(([o, a]) => `<div style="margin-top:6px"><b>„${esc(o)}”</b>${esc(a)}</div>`).join('')}</details></div>`;
+}
+
+const fmtT = t => (t || '').replace('T', ' ').slice(5, 16);
+
+function leadHtml(l) {
+  const b = l.business, a = l.audit || {}, c = l.crm;
+  const phone = phoneOf(l);
+  const kv = [
+    ['Właściciel', b.owner_name ? b.owner_name + (b.owner_info ? ' (' + b.owner_info + ')' : '') : ''],
+    ['E-mail', [...new Set([...(b.emails || []), ...(a.emails || [])])].slice(0, 3).join(', ')],
+    ['Google', b.rating != null ? `${b.rating} ★ (${b.reviews} opinii)` : ''],
+    ['PageSpeed', a.pagespeed_mobile != null ? `${a.pagespeed_mobile}/100` : ''],
+    ['Wygląd', a.visual_score != null ? `${a.visual_score}/10` : ''],
+  ].filter(x => x[1]).map(([k, v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('');
+  const reg = [
+    ['Firma', b.legal_name], ['Forma', b.legal_form], ['NIP', b.nip], ['KRS', b.krs],
+    ['Kapitał', b.capital_pln ? Math.round(b.capital_pln).toLocaleString('pl-PL') + ' zł' : ''],
+    ['Od', b.registered ? b.registered.slice(0, 4) : ''], ['PKD', b.pkd],
+    ['Zarząd', (b.board || []).length ? `${b.board.length} os. (${[...new Set(b.board)].join(', ').toLowerCase()})` : ''],
+  ].filter(x => x[1]).map(([k, v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('');
+  const links = [b.website && `<a href="${esc(b.website)}" target="_blank" rel="noopener">otwórz stronę</a>`,
+                 b.maps_url && `<a href="${esc(b.maps_url)}" target="_blank" rel="noopener">Google Maps</a>`,
+                 ...[...new Set([...(b.socials || []), ...(a.socials || [])])].slice(0, 3).map(s => `<a href="${esc(s)}" target="_blank" rel="noopener">${esc(s.split('/')[2] || 'social')}</a>`),
+                 ...(b.other_contacts || []).map(x => { const [n, ...u] = x.split(': '); return `<a href="${esc(u.join(': '))}" target="_blank" rel="noopener">${esc(n)}</a>`; })]
+                .filter(Boolean).join(' · ');
+  const shots = l.screenshot_desktop ? `<div class="shots"><img class="m" loading="lazy" src="${l.screenshot_mobile}" alt="Zrzut strony na telefonie"><img class="d" loading="lazy" src="${l.screenshot_desktop}" alt="Zrzut strony na komputerze"></div>` : '';
+  const hist = (c.historia || []).slice(-4).reverse().map(h => `${fmtT(h.czas)} ${esc(h.kto)}: ${esc(STATUSY[h.status] || h.status)}`).join(' · ');
+  const k = esc(l.key);
+  return `<details class="lead" data-key="${k}" ${l.key === openKey ? 'open' : ''}>
+    <summary><div class="sc t${l.tier}">${l.score}<small>${l.tier}</small></div>
+      <div style="min-width:0"><div class="nm">${esc(b.name)}${b.size ? `<span class="size ${b.size}">${esc(b.size)}</span>` : ''}</div>
+        <div class="meta">${esc(b.category)} · ${esc(b.city)}${phone ? ' · ' + esc(phone) : ''}${c.notatka ? ' · ✎ ' + esc(c.notatka.slice(0, 60)) : ''}</div></div>
+      <span class="st-badge st-${c.status}${due(c) ? ' st-due' : ''}">${esc(STATUSY[c.status] || c.status)}${c.status === 'oddzwonic' && c.oddzwonic ? ' ' + esc(fmtT(c.oddzwonic)) : ''}</span></summary>
+    <div class="det">
+      <div class="call">
+        ${phone ? `<a class="tel" href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">☎ ${esc(phone)}</a>` : '<span class="hint">Brak telefonu – sprawdź stronę firmy.</span>'}
+        <div class="sts">${Object.entries(STATUSY).map(([s, n]) => `<button type="button" class="chip" data-st="${s}" data-key="${k}" aria-pressed="${c.status === s}">${esc(n)}</button>`).join('')}</div>
+        <div class="actions"><label for="od-${k}" style="text-transform:none;letter-spacing:0;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">Oddzwonić
+          <input id="od-${k}" type="datetime-local" data-od="${k}" value="${esc(c.oddzwonic || '')}"></label>
+          <span class="hint">${c.kto ? 'ostatnio: ' + esc(c.kto) + ', ' + esc(fmtT(c.czas)) : ''}</span></div>
+        <textarea data-note="${k}" placeholder="Notatka z rozmowy: z kim, co powiedział, następny krok…" aria-label="Notatka">${esc(c.notatka || '')}</textarea>
+        <div class="hint" data-saved="${k}">${hist ? 'Historia: ' + hist : ''}</div>
+      </div>
+      ${scriptHtml(l.script)}
+      ${reg ? `<div><h4>Rejestr (Biała lista VAT + KRS)</h4><div class="kv">${reg}</div></div>` : ''}
+      ${(b.size_reasons || []).length ? `<div class="kv"><span>Wielkość ${esc(b.size)}: <b>${esc(b.size_reasons.join(', '))}</b></span></div>` : ''}
+      <div class="kv">${kv}</div>
+      ${links ? `<div class="kv">${links}</div>` : ''}
+      <div class="meta">${esc(b.address)}</div>
+      <div><h4>Co do zmiany na stronie</h4><ul>${l.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      ${shots}
+      ${l.pitch ? `<div class="pitch"><span>${esc(l.pitch)}</span><button class="copy" data-t="${esc(l.pitch)}">Kopiuj</button></div>` : ''}
+    </div></details>`;
 }
 
 function renderLeads() {
   renderFilters();
-  const list = LEADS.filter(l => filter === 'ALL' || l.lead_type === filter);
   $('dl').hidden = !LEADS.length;
   if (!LEADS.length) return;
-  $('leadSub').textContent = `${list.length} z ${LEADS.length} firm · od najlepszej szansy`;
-  $('leads').innerHTML = list.length ? list.map((l, i) => {
-    const b = l.business, a = l.audit || {};
-    const phone = b.phone || (a.phones || [])[0] || '';
-    const kv = [
-      ['Telefon', phone], ['Właściciel', b.owner_name ? b.owner_name + (b.owner_info ? ' (' + b.owner_info + ')' : '') : ''], ['E-mail', [...new Set([...(b.emails || []), ...(a.emails || [])])].slice(0, 3).join(', ')],
-      ['Google', b.rating != null ? `${b.rating} ★ (${b.reviews} opinii)` : ''],
-      ['PageSpeed', a.pagespeed_mobile != null ? `${a.pagespeed_mobile}/100` : ''],
-      ['Wygląd', a.visual_score != null ? `${a.visual_score}/10` : ''],
-    ].filter(x => x[1]).map(([k, v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('');
-    const links = [b.website && `<a href="${esc(b.website)}" target="_blank" rel="noopener">otwórz stronę</a>`,
-                   b.maps_url && `<a href="${esc(b.maps_url)}" target="_blank" rel="noopener">Google Maps</a>`,
-                   ...[...new Set([...(b.socials || []), ...(a.socials || [])])].slice(0, 3).map(s => `<a href="${esc(s)}" target="_blank" rel="noopener">${esc(s.split('/')[2] || 'social')}</a>`),
-                   ...(b.other_contacts || []).map(c => { const [n, ...u] = c.split(': '); return `<a href="${esc(u.join(': '))}" target="_blank" rel="noopener">${esc(n)}</a>`; })]
-                  .filter(Boolean).join(' · ');
-    const shots = l.screenshot_desktop ? `<div class="shots"><img class="m" loading="lazy" src="${l.screenshot_mobile}" alt="Zrzut strony na telefonie"><img class="d" loading="lazy" src="${l.screenshot_desktop}" alt="Zrzut strony na komputerze"></div>` : '';
-    return `<details class="lead" ${i === 0 ? 'open' : ''}>
-      <summary><div class="sc t${l.tier}">${l.score}<small>${l.tier}</small></div>
-        <div style="min-width:0"><div class="nm">${esc(b.name)}</div><div class="meta">${esc(b.category)} · ${esc(b.address)}</div></div>
-        <span class="type ty-${l.lead_type}">${esc(LABEL[l.lead_type] || l.lead_type)}</span></summary>
-      <div class="det">
-        <div class="kv">${kv}</div>
-        ${links ? `<div class="kv">${links}</div>` : ''}
-        ${b.contacts_note ? `<div class="kv"><span>Kontakty: <b>${esc(b.contacts_note)}</b></span></div>` : ''}
-        <div><h4>Co do zmiany</h4><ul>${l.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
-        ${shots}
-        ${l.pitch ? `<div class="pitch"><span>${esc(l.pitch)}</span><button class="copy" data-t="${esc(l.pitch)}">Kopiuj</button></div>` : ''}
-      </div></details>`;
-  }).join('') : '<div class="empty">Brak leadów tego typu.</div>';
+  const list = visible();
+  $('leadSub').textContent = `${list.length} z ${LEADS.length} firm w bazie · ${JA ? 'dzwonisz jako ' + JA + ' · ' : ''}oddzwonienia na górze, potem najlepsza szansa`;
+  $('leads').innerHTML = list.length ? list.slice(0, 300).map(leadHtml).join('') : '<div class="empty">Brak firm w tym widoku.</div>';
+}
+
+async function loadBaza() {
+  try {
+    const r = await api('/api/scout/baza');
+    STATUSY = r.statusy; JA = r.ja;
+    LEADS = r.rekordy.map(x => ({...x.lead, key: x.key, crm: x.crm}));
+    renderLeads();
+  } catch (_) {}
+}
+
+async function saveCrm(key, body, el) {
+  try {
+    const r = await api('/api/scout/crm', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key, ...body})});
+    const i = LEADS.findIndex(l => l.key === key);
+    if (i >= 0) LEADS[i] = {...r.lead, key: r.key, crm: r.crm};
+    return true;
+  } catch (e) { if (el) el.textContent = 'Nie zapisano: ' + e.message; return false; }
 }
 
 function renderState(s) {
@@ -280,7 +393,7 @@ async function tick() {
   try {
     const s = await api('/api/scout/state');
     renderState(s);
-    if (s.last_run && s.last_run !== lastRun) { lastRun = s.last_run; LEADS = await api('/api/scout/leads'); renderLeads(); loadMail(); }
+    if (s.last_run && s.last_run !== lastRun) { lastRun = s.last_run; await loadBaza(); loadMail(); }
     if (s.status !== 'PRACUJE' && polling) { clearInterval(polling); polling = null; }
   } catch (e) { $('formMsg').textContent = e.message; }
 }
@@ -329,10 +442,37 @@ $('cats').addEventListener('click', e => {
   b.setAttribute('aria-pressed', selected.has(c));
 });
 $('filters').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; filter = b.dataset.k; renderLeads(); });
+['q', 'fSize', 'fSeg', 'fTel'].forEach(id => $(id).addEventListener('input', renderLeads));
+document.querySelector('.seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSegment(b.dataset.seg); });
+$('leads').addEventListener('toggle', e => { const d = e.target; if (d.classList && d.classList.contains('lead') && d.open) openKey = d.dataset.key; }, true);
 $('leads').addEventListener('click', async e => {
+  const st = e.target.closest('[data-st]');
+  if (st) {
+    const key = st.dataset.key, s = st.dataset.st, body = {status: s};
+    if (s === 'oddzwonic') {
+      const inp = document.querySelector(`[data-od="${CSS.escape(key)}"]`);
+      if (!inp.value) {  // domyślnie za 2 godziny, pełna godzina
+        const d = new Date(Date.now() + 2 * 3600e3); d.setMinutes(0, 0, 0);
+        inp.value = new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+      }
+      body.oddzwonic = inp.value;
+    }
+    const note = document.querySelector(`[data-note="${CSS.escape(key)}"]`);
+    if (note) body.notatka = note.value;  // niezapisana notatka idzie razem ze statusem
+    openKey = key;
+    if (await saveCrm(key, body)) renderLeads();
+    return;
+  }
   const b = e.target.closest('.copy'); if (!b) return;
   try { await navigator.clipboard.writeText(b.dataset.t); b.textContent = 'Skopiowano'; } catch (_) { b.textContent = 'Zaznacz tekst'; }
 });
+$('leads').addEventListener('change', async e => {
+  const t = e.target, key = t.dataset.note || t.dataset.od; if (!key) return;
+  const msg = document.querySelector(`[data-saved="${CSS.escape(key)}"]`);
+  const ok = await saveCrm(key, t.dataset.note ? {notatka: t.value} : {oddzwonic: t.value}, msg);
+  if (ok && msg) msg.innerHTML = '<span class="saved">Zapisano ✓</span>';
+});
+
 $('freeOnly').addEventListener('change', async e => {
   try {
     const cfg = await api('/api/scout/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({free_only: e.target.checked})});
@@ -359,7 +499,7 @@ $('search').addEventListener('submit', async e => {
     await api('/api/scout/run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({
       miasta: cities, branze: cats, limit: +$('limit').value, min_wynik: +$('minScore').value,
       ocena_ai: $('optAi').checked, pagespeed: $('optPsi').checked, ai_top: +$('aiTop').value || 25, mock: $('optMock').checked,
-      kontakty: $('optKontakty').checked})});
+      kontakty: $('optKontakty').checked, segment})});
     if (!polling) polling = setInterval(tick, 1500);
     tick();
   } catch (err) { $('formMsg').textContent = err.message; }
@@ -367,13 +507,16 @@ $('search').addEventListener('submit', async e => {
 
 (async () => {
   try {
-    const cfg = await api('/api/scout/config');
-    renderKeys(cfg); renderCats(cfg.categories);
+    const cfg = await api('/api/scout/config'); CFG = cfg;
+    renderKeys(cfg); setSegment(cfg.segment || 'duze');
     if (!cfg.keys.google) $('optPsi').checked = !!cfg.keys.pagespeed;
   } catch (e) { renderCats(['dentysta']); }
+  await loadBaza();
   await tick();
   if ($('status').textContent === 'PRACUJE' && !polling) polling = setInterval(tick, 1500);
   setInterval(() => { if (!polling) tick(); }, 5000);  // co 5 s sprawdza, czy SCOUT nadal działa
+  // co 30 s odśwież statusy (druga osoba mogła coś zmienić) – ale nie w trakcie pisania notatki
+  setInterval(() => { const a = document.activeElement; if (!a || !a.matches('textarea,input')) loadBaza(); }, 30000);
 })();
 </script>
 </body>

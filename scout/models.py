@@ -27,6 +27,18 @@ class Business:
     contacts_note: str = ""  # skąd są kontakty i czy są pewne
     owner_name: str = ""  # imię i nazwisko właściciela / lekarza (z nazwy firmy albo ze ZnanyLekarz)
     owner_info: str = ""  # np. "lekarz dentysta, ZnanyLekarz 4.9 (120 opinii) – sprawdź, czy właściciel"
+    # Rejestry (Biała lista VAT + KRS) – scout/firma.py
+    nip: str = ""
+    krs: str = ""
+    legal_name: str = ""
+    legal_form: str = ""  # np. "sp. z o.o.", "S.A.", "jednoosobowa działalność"
+    capital_pln: Optional[float] = None
+    pkd: str = ""
+    registered: str = ""  # data rejestracji RRRR-MM-DD
+    board: list[str] = field(default_factory=list)  # funkcje w zarządzie, np. "PREZES ZARZĄDU" (KRS ukrywa nazwiska)
+    vat_status: str = ""
+    size: str = ""  # MAŁA | ŚREDNIA | DUŻA (szacunek)
+    size_reasons: list[str] = field(default_factory=list)
 
 
 def _uniq(items: list[str]) -> list[str]:
@@ -75,6 +87,11 @@ class Audit:
     visual_summary: str = ""
     visual_issues: list[str] = field(default_factory=list)
     screenshot_path: str = ""
+    nips: list[str] = field(default_factory=list)  # NIP-y znalezione na stronie
+    has_english: bool = False
+    has_careers: bool = False
+    has_linkedin: bool = False
+    internal_links: int = 0
     error: str = ""
 
 
@@ -87,6 +104,21 @@ class Lead:
     lead_type: str  # BRAK_STRONY | TYLKO_SOCIAL | STRONA_NIE_DZIALA | SLABA_STRONA | OK
     reasons: list[str]
     pitch: str = ""
+
+    @property
+    def key(self) -> str:
+        """Stały identyfikator firmy między wyszukiwaniami (do statusów rozmów)."""
+        from .filters import _norm, domain_of
+
+        b = self.business
+        if b.nip:
+            return "nip:" + b.nip
+        d = domain_of(b.website)
+        if d and "." in d and not any(h in d for h in ("facebook", "instagram", "google", "booksy")):
+            return "www:" + d
+        if b.source_id:
+            return b.source + ":" + b.source_id
+        return "na:" + _norm(b.name) + "|" + _norm(b.city)
 
     def to_row(self) -> dict:
         b, a = self.business, self.audit or Audit()
@@ -102,6 +134,14 @@ class Lead:
             "telefon": b.phone or (a.phones[0] if a.phones else ""),
             "wlasciciel": b.owner_name,
             "wlasciciel_info": b.owner_info,
+            "wielkosc": b.size,
+            "forma_prawna": b.legal_form,
+            "nip": b.nip,
+            "krs": b.krs,
+            "kapital_zl": b.capital_pln if b.capital_pln is not None else "",
+            "od_roku": b.registered[:4],
+            "pkd": b.pkd,
+            "zarzad": ", ".join(b.board),
             "email": ", ".join(_uniq(b.emails + a.emails)[:3]),
             "strona": b.website,
             "google_maps": b.maps_url,
@@ -123,6 +163,7 @@ class Lead:
 
     def to_dict(self) -> dict:
         return {
+            "key": self.key,
             "score": self.score,
             "tier": self.tier,
             "lead_type": self.lead_type,

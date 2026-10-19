@@ -54,6 +54,28 @@ CONSTRUCTION_MARKERS = [
     "przerwa techniczna",
 ]
 CONTACT_PATHS = ["kontakt", "contact", "kontakt.html", "kontakt.php", "o-nas"]
+NIP_RE = re.compile(r"NIP\s*(?:PL)?\s*[:.]?\s*((?:PL)?\s*\d{3}[\s-]?\d{2,3}[\s-]?\d{2}[\s-]?\d{2,3})", re.I)
+EN_RE = re.compile(r"""(?:hreflang=["']en|href=["'][^"']*/en(?:/|["'?#])|>\s*(?:EN|English|ENG)\s*<)""", re.I)
+CAREERS_RE = re.compile(r"""href=["'][^"']*(?:kariera|praca|careers|rekrutacja|oferty-pracy|jobs)""", re.I)
+
+
+def valid_nip(nip: str) -> bool:
+    d = re.sub(r"\D", "", nip)
+    if len(d) != 10:
+        return False
+    w = (6, 5, 7, 2, 3, 4, 5, 6, 7)
+    return sum(int(d[i]) * w[i] for i in range(9)) % 11 == int(d[9])
+
+
+def find_nips(text: str) -> list[str]:
+    out = []
+    for m in NIP_RE.findall(text):
+        d = re.sub(r"\D", "", m)
+        if valid_nip(d) and d not in out:
+            out.append(d)
+    return out[:3]
+
+
 SOCIAL_RE = re.compile(r"https?://(?:www\.)?(facebook|instagram|tiktok|linkedin|youtube)\.com/[^\s\"'<>]+", re.I)
 
 
@@ -104,7 +126,7 @@ def _detect_tech(html: str, soup: BeautifulSoup) -> tuple[str, list[str]]:
         issues.append(f"stara Joomla {mj.group(1)}")
     if "joomla" in g and not mj:
         issues.append("Joomla (często przestarzała)")
-    if any(x in g for x in ("frontpage", "dreamweaver", "word", "web page maker", "iweb", "kompozer")):
+    if any(x in g for x in ("frontpage", "dreamweaver", "microsoft word", "web page maker", "iweb", "kompozer")):
         issues.append(f"strona robiona w {gen}")
     if "<frameset" in low or "<frame " in low:
         issues.append("ramki (frameset)")
@@ -232,6 +254,22 @@ def audit_site(url: str) -> Audit:
                 continue
     mailto = re.findall(r"mailto:([^\"'?>\s]+)", blob, re.I)
     a.emails = _clean_emails(" ".join(mailto) + " " + BeautifulSoup(blob, "html.parser").get_text(" "), site_domain)
+    a.has_english = bool(EN_RE.search(html))
+    a.has_careers = bool(CAREERS_RE.search(html))
+    a.has_linkedin = "linkedin.com/company" in low
+    a.internal_links = len({urljoin(r.url, x.get("href", "")).split("#")[0] for x in soup.find_all("a")
+                            if domain_of(urljoin(r.url, x.get("href", ""))) == site_domain})
+    a.nips = find_nips(BeautifulSoup(blob, "html.parser").get_text(" "))
+    if not a.nips:  # NIP bywa tylko w stopce podstrony kontakt / o nas / polityki prywatności
+        for p in ("kontakt", "contact", "o-nas", "polityka-prywatnosci"):
+            try:
+                rc = _get(s, urljoin(r.url, "/" + p), verify=False)
+                if rc.status_code < 400:
+                    a.nips = find_nips(BeautifulSoup(rc.text, "html.parser").get_text(" "))
+                    if a.nips:
+                        break
+            except requests.RequestException:
+                continue
     tel = re.findall(r"tel:([^\"'>\s]+)", blob, re.I)
     a.phones = _clean_phones(" ".join(tel) + " " + text)
     return a
