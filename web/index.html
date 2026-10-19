@@ -271,7 +271,13 @@ function setSegment(seg) {
 const DONE = new Set(['odmowa', 'zly_numer', 'nie_dzwonic']);
 const HOT = new Set(['spotkanie', 'zainteresowany', 'wyslac_oferte']);
 const due = c => c.status === 'oddzwonic' && !!c.oddzwonic && new Date(c.oddzwonic) <= new Date();
-const phoneOf = l => l.business.phone || ((l.audit || {}).phones || [])[0] || '';
+const phoneRaw = l => l.business.phone || ((l.audit || {}).phones || [])[0] || '';
+// pierwszy numer (część firm ma dwa przez średnik/przecinek/„lub”), tylko cyfry, z +48 dla polskich 9-cyfrowych
+const phoneDial = raw => { const first = String(raw).split(/[;,\/]|lub/i)[0]; let d = first.replace(/[^\d+]/g, '');
+  if (d.startsWith('00')) d = '+' + d.slice(2); if (!d.startsWith('+')) { d = d.replace(/^0+/, ''); if (d.length === 9) d = '+48' + d; else if (d.length === 11 && d.startsWith('48')) d = '+' + d; }
+  return d; };
+const phoneNice = raw => { const d = phoneDial(raw).replace(/^\+48/, ''); return d.length === 9 ? d.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : String(raw).split(/[;,\/]/)[0].trim(); };
+const phoneOf = l => phoneRaw(l);
 const GROUPS = [
   ['DO', 'Do zrobienia', c => !DONE.has(c.status) && !HOT.has(c.status)],
   ['TERAZ', 'Oddzwonić teraz', c => due(c)],
@@ -366,7 +372,7 @@ function leadHtml(l) {
       <span class="st-badge st-${c.status}${due(c) ? ' st-due' : ''}">${esc(STATUSY[c.status] || c.status)}${c.status === 'oddzwonic' && c.oddzwonic ? ' ' + esc(fmtT(c.oddzwonic)) : ''}</span></summary>
     <div class="det">
       <div class="call">
-        ${phone ? `<a class="tel" href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">☎ ${esc(phone)}</a>` : '<span class="hint">Brak telefonu – sprawdź stronę firmy.</span>'}
+        ${phone ? `<a class="tel" href="tel:${esc(phoneDial(phone))}">☎ ${esc(phoneNice(phone))}</a>${/[;,\/]|lub/i.test(phone) ? `<span class="hint">drugi numer: ${esc(String(phone).split(/[;,\/]|lub/i).slice(1).join(', ').trim())}</span>` : ''}` : '<span class="hint">Brak telefonu – sprawdź stronę firmy.</span>'}
         <div class="sts">${Object.entries(STATUSY).map(([s, n]) => `<button type="button" class="chip" data-st="${s}" data-key="${k}" aria-pressed="${c.status === s}">${esc(n)}</button>`).join('')}</div>
         <div class="actions"><label for="od-${k}" style="text-transform:none;letter-spacing:0;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">Oddzwonić
           <input id="od-${k}" type="datetime-local" data-od="${k}" value="${esc(c.oddzwonic || '')}"></label>
