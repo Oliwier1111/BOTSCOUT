@@ -69,6 +69,8 @@ class RunRequest(BaseModel):
     mock: bool | None = None
     kontakty: bool | None = None
     segment: str | None = None
+    tylko_z_telefonem: bool = False
+    min_wielkosc: str = ""
 
 
 class CrmRequest(BaseModel):
@@ -103,7 +105,9 @@ def run(req: RunRequest):
     started = agent.start(cities=req.miasta, categories=req.branze, max_per_query=req.limit,
                           min_score=req.min_wynik, visual_ai=req.ocena_ai, use_pagespeed=req.pagespeed,
                           visual_top=req.ai_top, mock=req.mock, find_contacts=req.kontakty,
-                          segment=req.segment if req.segment in ("duze", "male") else None)
+                          segment=req.segment if req.segment in ("duze", "male") else None,
+                          require_phone=req.tylko_z_telefonem,
+                          min_size=req.min_wielkosc if req.min_wielkosc in ("ŚREDNIA", "DUŻA") else "")
     if not started:
         raise HTTPException(409, "SCOUT już pracuje")
     return {"ok": True, "status": "PRACUJE"}

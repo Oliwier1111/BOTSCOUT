@@ -88,6 +88,10 @@ def update(key: str, who: str, status: str | None = None, notatka: str | None = 
         if rec is None:
             raise KeyError(key)
         c = rec["crm"]
+        if notatka is not None and notatka == c.get("notatka", ""):
+            notatka = None  # bez zmiany – nie logujemy i nie zapisujemy ponownie
+        if oddzwonic is not None and oddzwonic == c.get("oddzwonic", ""):
+            oddzwonic = None
         if status is not None:
             if status not in STATUSY:
                 raise ValueError("nieznany status")

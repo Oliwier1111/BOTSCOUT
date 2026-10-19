@@ -104,6 +104,8 @@ class ScoutAgent:
         mock: bool | None = None,
         find_contacts: bool | None = None,
         segment: str | None = None,
+        require_phone: bool = False,
+        min_size: str = "",
     ) -> list[Lead]:
         segment = (segment or config.SEGMENT).lower()
         cities = cities or config.DEFAULT_CITIES
@@ -171,6 +173,14 @@ class ScoutAgent:
 
             leads = [scoring.score_lead(b, audits.get(i), pitches.get(i, ""), segment) for i, b in enumerate(local)]
             leads = sorted((l for l in leads if l.score >= min_score), key=lambda l: -l.score)
+            if require_phone or min_size:
+                order = {"MAŁA": 0, "NIEZNANA": 0, "ŚREDNIA": 1, "DUŻA": 2}
+                need = order.get(min_size, 0)
+                before = len(leads)
+                leads = [l for l in leads
+                         if (not require_phone or l.business.phone or (l.audit and l.audit.phones))
+                         and order.get(l.business.size, 0) >= need]
+                self.log(f"Filtr jakości (telefon: {'tak' if require_phone else 'nie'}, min. wielkość: {min_size or 'dowolna'}): zostało {len(leads)} z {before}")
             if not found:
                 self.log("Nie znaleziono żadnych firm. Sprawdź pisownię miasta (np. „Poznań”, „Komorniki”) i połączenie z internetem.")
             self.leads = leads
