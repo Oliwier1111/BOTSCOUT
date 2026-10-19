@@ -1,0 +1,165 @@
+# Sieci i duże marki, które agent pomija (jedna nazwa lub domena na linię, małe litery).
+# Dopasowanie po fragmencie nazwy firmy albo domeny strony. Dopisuj śmiało.
+media expert
+mediaexpert
+media markt
+mediamarkt
+rtv euro agd
+euro.com.pl
+neonet
+x-kom
+komputronik
+empik
+ikea
+castorama
+leroy merlin
+bricomarche
+jysk
+pepco
+biedronka
+lidl
+kaufland
+auchan
+carrefour
+żabka
+zabka
+netto
+stokrotka
+lewiatan
+rossmann
+hebe
+douglas
+sephora
+orlen
+circle k
+mcdonald
+kfc
+burger king
+subway
+pizza hut
+domino's pizza
+starbucks
+costa coffee
+north fish
+sphinx
+da grasso
+telepizza
+luxmed
+lux med
+medicover
+enel-med
+enelmed
+centrum medyczne cmp
+diagnostyka
+alab
+synevo
+dentim
+dental planet
+supra dent
+vision express
+grandvision
+apart optyk
+optyk krysiak
+fielmann
+inglot
+yes biżuteria
+w.kruk
+cuk ubezpieczenia
+pko
+pekao
+santander
+mbank
+ing bank
+bank millennium
+alior
+credit agricole
+bnp paribas
+inpost
+dhl
+dpd
+poczta polska
+t-mobile
+pzu
+tuir warta
+allianz
+ergo hestia
+norauto
+euromaster
+first stop
+bosch car service
+toyota
+volkswagen
+skoda
+renault
+peugeot
+hyundai
+kia
+mercedes
+bmw
+audi
+smyk
+cropp
+reserved
+sinsay
+mohito
+ccc
+deichmann
+decathlon
+martes sport
+intersport
+super-pharm
+dr.max
+dr max
+apteka cefarm
+apteka słoneczna
+fryzjer jean louis david
+yves rocher
+drogeria natura
+calypso fitness
+zdrofit
+just gym
+mcfit
+fitness platinium
+pure jatomi
+energylandia
+hotel ibis
+novotel
+mercure
+dino polska
+plus gsm
+orange polska
+play mobile
+shell polska
+stacja bp
+obi markt
+apteka ziko
+apteka gemini
+apteka dbam o zdrowie
+
+# --- duże sieci i korporacje (decyzje w centrali, nie w oddziale) – dopisane pod segment „większe firmy”
+bricoman
+onninen
+leroy merlin
+castorama
+obi
+brico
+makro
+selgros
+eurocash
+dhl
+ups
+fedex
+dpd
+inpost
+gls
+poczta polska
+schenker
+kuehne
+rhenus
+hellmann
+raben
+kaufland
+auchan
+ikea
+agata meble
+black red white

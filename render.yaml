@@ -1,0 +1,19 @@
+# Render.com – darmowy hosting SCOUT-a (Blueprint). Szczegóły: HOSTING.md
+services:
+  - type: web
+    name: scout
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install requests beautifulsoup4 python-dotenv fastapi uvicorn
+    startCommand: python server.py
+    healthCheckPath: /api/scout/config
+    envVars:
+      - key: SCOUT_HASLO
+        sync: false          # Render zapyta o hasło przy tworzeniu
+      - key: SCOUT_TYLKO_DARMOWE
+        value: "1"
+      - key: SCOUT_VISUAL_AI
+        value: "0"           # zrzuty ekranu wymagają Playwrighta – na darmowym planie wyłączone
+      - key: PYTHON_VERSION
+        value: "3.12.7"
